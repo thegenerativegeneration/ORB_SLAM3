@@ -3816,6 +3816,11 @@ void Tracking::Reset(bool bLocMap)
     KeyFrame::nNextId = 0;
     Frame::nNextId = 0;
     mState = NO_IMAGES_YET;
+    // StereoInitialization copies mLastFrame before setting its reference keyframe, so the frame after
+    // initialisation must track against the reference keyframe, not with the motion model (UpdateLastFrame would
+    // dereference a null mLastFrame.mpReferenceKF). A velocity left over from before the reset would select the
+    // motion model; ResetActiveMap and CreateMapInAtlas clear it too.
+    mbVelocity = false;
 
     mbReadyToInitializate = false;
     mbSetInit=false;
