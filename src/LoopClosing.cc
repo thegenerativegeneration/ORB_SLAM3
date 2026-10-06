@@ -1113,6 +1113,7 @@ void LoopClosing::CorrectLoop()
         }
         // TODO Check this index increasement
         mpAtlas->GetCurrentMap()->IncreaseChangeIndex();
+        mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex();
 
 
         // Start Loop Fusion
@@ -1552,6 +1553,7 @@ void LoopClosing::MergeLocal()
         mpAtlas->ChangeMap(pMergeMap);
         mpAtlas->SetMapBad(pCurrentMap);
         pMergeMap->IncreaseChangeIndex();
+        pMergeMap->IncreaseFrameMoveIndex();
         //TODO for debug
         pMergeMap->ChangeId(pCurrentMap->GetId());
 
@@ -1776,6 +1778,11 @@ void LoopClosing::MergeLocal()
 
     pCurrentMap->IncreaseChangeIndex();
     pMergeMap->IncreaseChangeIndex();
+    {
+        // The welding BA and the essential graph above wrote the merged map's poses under this lock.
+        unique_lock<mutex> lock(pMergeMap->mMutexMapUpdate);
+        pMergeMap->IncreaseFrameMoveIndex();
+    }
 
     mpAtlas->RemoveBadMaps();
 
@@ -1853,6 +1860,7 @@ void LoopClosing::MergeLocal2()
         // The active map moved in place (same Map object): announce it inside the lock, after the writes.
         // MergeInertialBA below bumps the index again after its own pose writes.
         mpAtlas->GetCurrentMap()->IncreaseChangeIndex();
+        mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex();
 
         std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
@@ -2497,6 +2505,7 @@ void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoop
 
             pActiveMap->InformNewBigChange();
             pActiveMap->IncreaseChangeIndex();
+            pActiveMap->IncreaseFrameMoveIndex();
 
             // TODO Check this update
             // mpTracker->UpdateFrameIMU(1.0f, mpTracker->GetLastKeyFrame()->GetImuBias(), mpTracker->GetLastKeyFrame());

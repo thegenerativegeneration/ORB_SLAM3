@@ -119,6 +119,11 @@ public:
 
     int GetMapChangeIndex();
     void IncreaseChangeIndex();
+    // Counts moves of the map's frame (gauge): IMU initialisation, loop correction, merges and global BA, which move
+    // all poses of the map together. Local BA, which bumps the change index, refines local poses without moving the
+    // frame and leaves this index alone. Bumped inside mMutexMapUpdate after the pose writes.
+    int GetFrameMoveIndex();
+    void IncreaseFrameMoveIndex();
     int GetLastMapChange();
     void SetLastMapChange(int currentChangeId);
 
@@ -192,6 +197,7 @@ protected:
 
     int mnMapChange;
     int mnMapChangeNotified;
+    int mnFrameMoveIdx = 0;
 
     long unsigned int mnInitKFid;
     long unsigned int mnMaxKFid;

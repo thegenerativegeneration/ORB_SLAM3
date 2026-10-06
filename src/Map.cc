@@ -357,6 +357,18 @@ void Map::IncreaseChangeIndex()
     mnMapChange++;
 }
 
+int Map::GetFrameMoveIndex()
+{
+    unique_lock<mutex> lock(mMutexMap);
+    return mnFrameMoveIdx;
+}
+
+void Map::IncreaseFrameMoveIndex()
+{
+    unique_lock<mutex> lock(mMutexMap);
+    mnFrameMoveIdx++;
+}
+
 int Map::GetLastMapChange()
 {
     unique_lock<mutex> lock(mMutexMap);
