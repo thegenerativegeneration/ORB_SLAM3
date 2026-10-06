@@ -48,7 +48,8 @@ cmake --build <out>/build-ios
 - Flags: C++17, `-O3 -DNDEBUG`, `COMPILEDWITHC11`, no `-march=native`, no OpenMP (g2o `config.h` has `G2O_OPENMP` undefined), no bitcode.
 - Host build (vocabulary conversion, `-DORBSLAM3_HOST_TOOLS=ON`): the same `CMakeLists.txt` and sources with an
   explicit `-DOpenCV_DIR` (default `/opt/homebrew/lib/cmake/opencv4`, override with `HOST_OPENCV_DIR`) and the pinned
-  Eigen. It also builds `rgbd_inertial_euroc_folder` when that target is requested.
+  Eigen. It also builds `rgbd_inertial_euroc_folder` and `rgbd_inertial_capture_cycle` (several captures on one
+  System with `System::Reset()` between them, optional featureless frames) when those targets are requested.
 
 ### Using it in the app
 
