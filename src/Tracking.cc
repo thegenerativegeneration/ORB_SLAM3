@@ -2214,7 +2214,9 @@ void Tracking::Track()
 
         mTiming.localMapMs = WallMs() - localMapStart;
         // Update drawer
+#ifndef ORBSLAM3_NO_VIEWER
         mpFrameDrawer->Update(this);
+#endif
         if(mCurrentFrame.isSet())
             mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.GetPose());
 
@@ -3397,10 +3399,12 @@ void Tracking::SearchLocalPoints()
             pMP->IncreaseVisible();
             nToMatch++;
         }
+#ifndef ORBSLAM3_NO_VIEWER
         if(pMP->mbTrackInView)
         {
             mCurrentFrame.mmProjectPoints[pMP->mnId] = cv::Point2f(pMP->mTrackProjX, pMP->mTrackProjY);
         }
+#endif
     }
 
     if(nToMatch>0)
@@ -3434,8 +3438,10 @@ void Tracking::SearchLocalPoints()
 
 void Tracking::UpdateLocalMap()
 {
+#ifndef ORBSLAM3_NO_VIEWER
     // This is for visualization
     mpAtlas->SetReferenceMapPoints(mvpLocalMapPoints);
+#endif
 
     // Update
     UpdateLocalKeyFrames();

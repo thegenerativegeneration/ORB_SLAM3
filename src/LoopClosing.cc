@@ -18,6 +18,10 @@
 
 
 #include "LoopClosing.h"
+#ifdef __APPLE__
+#include <pthread.h>
+#include <pthread/qos.h>
+#endif
 
 #include "Sim3Solver.h"
 #include "Converter.h"
@@ -89,6 +93,12 @@ void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper)
 
 void LoopClosing::Run()
 {
+#ifdef __APPLE__
+    // Loop detection and correction may lag behind tracking: utility QoS lets the scheduler favour the tracking and
+    // mapping threads and move this one to efficiency cores.
+    pthread_setname_np("orb.loopclosing");
+    pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
+#endif
     mbFinished =false;
 
     while(1)
@@ -2300,6 +2310,12 @@ void LoopClosing::ResetIfRequested()
 
 void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoopKF)
 {  
+#ifdef __APPLE__
+    // Loop detection and correction may lag behind tracking: utility QoS lets the scheduler favour the tracking and
+    // mapping threads and move this one to efficiency cores.
+    pthread_setname_np("orb.globalba");
+    pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
+#endif
     Verbose::PrintMess("Starting Global Bundle Adjustment", Verbose::VERBOSITY_NORMAL);
 
 #ifdef REGISTER_TIMES
