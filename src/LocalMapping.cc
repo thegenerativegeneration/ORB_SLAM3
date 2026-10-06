@@ -1290,6 +1290,9 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
             Sophus::SE3f Twg(mRwg.cast<float>().transpose(), Eigen::Vector3f::Zero());
             mpAtlas->GetCurrentMap()->ApplyScaledRotation(Twg, mScale, true);
             mpTracker->UpdateFrameIMU(mScale, vpKF[0]->GetImuBias(), mpCurrentKeyFrame);
+            // Inside the map-update lock and after the writes, so a reader holding the lock sees the move and the
+            // new index together. The full inertial BA below moves the map again and bumps it again.
+            mpAtlas->GetCurrentMap()->IncreaseChangeIndex();
         }
 
         // Check if initialization OK

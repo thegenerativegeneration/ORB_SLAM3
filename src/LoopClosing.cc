@@ -1019,7 +1019,6 @@ void LoopClosing::CorrectLoop()
 
     // Update keyframe pose with corrected Sim3. First transform Sim3 to SE3 (scale translation)
     Sophus::SE3d correctedTcw(mg2oLoopScw.rotation(),mg2oLoopScw.translation() / mg2oLoopScw.scale());
-    mpCurrentKF->SetPose(correctedTcw.cast<float>());
 
     Map* pLoopMap = mpCurrentKF->GetMap();
 
@@ -1039,6 +1038,9 @@ void LoopClosing::CorrectLoop()
     {
         // Get Map Mutex
         unique_lock<mutex> lock(pLoopMap->mMutexMapUpdate);
+
+        // Under the map-update lock like the rest of the correction, which IncreaseChangeIndex below announces.
+        mpCurrentKF->SetPose(correctedTcw.cast<float>());
 
         const bool bImuInit = pLoopMap->isImuInitialized();
 
@@ -1848,6 +1850,9 @@ void LoopClosing::MergeLocal2()
             bScaleVel=true;
         mpAtlas->GetCurrentMap()->ApplyScaledRotation(T_on,s_on,bScaleVel);
         mpTracker->UpdateFrameIMU(s_on,mpCurrentKF->GetImuBias(),mpTracker->GetLastKeyFrame());
+        // The active map moved in place (same Map object): announce it inside the lock, after the writes.
+        // MergeInertialBA below bumps the index again after its own pose writes.
+        mpAtlas->GetCurrentMap()->IncreaseChangeIndex();
 
         std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
