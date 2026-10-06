@@ -39,6 +39,7 @@
 #include "Viewer.h"
 #include "ImuTypes.h"
 #include "Settings.h"
+#include "TrackStats.h"
 
 
 namespace ORB_SLAM3
@@ -180,6 +181,11 @@ public:
     int GetTrackingState();
     std::vector<MapPoint*> GetTrackedMapPoints();
     std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
+    // Cost of the frame the last TrackRGBD processed. Call right after TrackRGBD, on the same thread.
+    TrackTiming GetLastTrackTiming();
+    // LocalMapping's work since the previous call (which resets it), and its keyframe queue now. Any thread.
+    MappingStats TakeMappingStats();
+    int LocalMappingQueueLength();
     // LocalMapping has no keyframe queued or in work and LoopClosing is idle (offline replays in lockstep).
     bool BackEndIdle();
 

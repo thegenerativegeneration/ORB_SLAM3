@@ -26,6 +26,8 @@
 
 #include<mutex>
 #include<chrono>
+#include <algorithm>
+#include <pthread.h>
 
 namespace ORB_SLAM3
 {
@@ -63,6 +65,9 @@ void LocalMapping::SetTracker(Tracking *pTracker)
 
 void LocalMapping::Run()
 {
+#ifdef __APPLE__
+    pthread_setname_np("orb.localmapping");
+#endif
     mbFinished = false;
 
     while(1)
@@ -73,6 +78,7 @@ void LocalMapping::Run()
         // Check if there are keyframes in the queue
         if(CheckNewKeyFrames() && !mbBadImu)
         {
+            const double statsWall0 = WallMs(), statsCpu0 = ThreadCpuMs();
 #ifdef REGISTER_TIMES
             double timeLBA_ms = 0;
             double timeKFCulling_ms = 0;
@@ -116,6 +122,7 @@ void LocalMapping::Run()
 #endif
 
             bool b_doneLBA = false;
+            bool lbaAborted = false;
             int num_FixedKF_BA = 0;
             int num_OptKF_BA = 0;
             int num_MPs_BA = 0;
@@ -156,6 +163,7 @@ void LocalMapping::Run()
                     }
 
                 }
+                lbaAborted = b_doneLBA && mbAbortBA;
 #ifdef REGISTER_TIMES
                 std::chrono::steady_clock::time_point time_EndLBA = std::chrono::steady_clock::now();
 
@@ -251,6 +259,15 @@ void LocalMapping::Run()
 #endif
 
             mpLoopCloser->InsertKeyFrame(mpCurrentKeyFrame);
+            {
+                const double wall = WallMs() - statsWall0, cpu = ThreadCpuMs() - statsCpu0;
+                unique_lock<mutex> lock(mMutexStats);
+                mStats.keyFrames++;
+                mStats.wallMs += wall;
+                mStats.cpuMs += cpu;
+                mStats.maxWallMs = std::max(mStats.maxWallMs, wall);
+                if (lbaAborted) mStats.abortedBA++;
+            }
 
 #ifdef REGISTER_TIMES
             std::chrono::steady_clock::time_point time_EndLocalMap = std::chrono::steady_clock::now();
@@ -282,6 +299,14 @@ void LocalMapping::Run()
     }
 
     SetFinish();
+}
+
+MappingStats LocalMapping::TakeStats()
+{
+    unique_lock<mutex> lock(mMutexStats);
+    const MappingStats s = mStats;
+    mStats = MappingStats();
+    return s;
 }
 
 void LocalMapping::InsertKeyFrame(KeyFrame *pKF)

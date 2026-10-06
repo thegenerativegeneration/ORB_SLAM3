@@ -1519,6 +1519,8 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
 
 Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, const double &timestamp, string filename)
 {
+    mTiming = TrackTiming();
+    const double timingWall0 = WallMs(), timingCpu0 = ThreadCpuMs();
     mImGray = imRGB;
     cv::Mat imDepth = imD;
 
@@ -1545,6 +1547,8 @@ Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, co
     else if(mSensor == System::IMU_RGBD)
         mCurrentFrame = Frame(mImGray,imDepth,timestamp,mpORBextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,&mLastFrame,*mpImuCalib);
 
+    mTiming.extractMs = WallMs() - timingWall0;
+
 
 
 
@@ -1559,6 +1563,10 @@ Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, co
 
     Track();
 
+    mTiming.localKeyFrames = (int)mvpLocalKeyFrames.size();
+    mTiming.localMapPoints = (int)mvpLocalMapPoints.size();
+    mTiming.totalMs = WallMs() - timingWall0;
+    mTiming.cpuMs = ThreadCpuMs() - timingCpu0;
     return mCurrentFrame.GetPose();
 }
 
@@ -1871,7 +1879,9 @@ void Tracking::Track()
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_StartPreIMU = std::chrono::steady_clock::now();
 #endif
+        const double imuStart = WallMs();
         PreintegrateIMU();
+        mTiming.imuMs = WallMs() - imuStart;
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_EndPreIMU = std::chrono::steady_clock::now();
 
@@ -1883,7 +1893,9 @@ void Tracking::Track()
     mbCreatedMap = false;
 
     // Get Map Mutex -> Map cannot be changed
+    const double lockStart = WallMs();
     unique_lock<mutex> lock(pCurrentMap->mMutexMapUpdate);
+    mTiming.lockWaitMs = WallMs() - lockStart;
 
     mbMapUpdated = false;
 
@@ -1924,6 +1936,7 @@ void Tracking::Track()
     {
         // System is initialized. Track Frame.
         bool bOK;
+        const double predictStart = WallMs();
 
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_StartPosePred = std::chrono::steady_clock::now();
@@ -2108,12 +2121,14 @@ void Tracking::Track()
         if(!mCurrentFrame.mpReferenceKF)
             mCurrentFrame.mpReferenceKF = mpReferenceKF;
 
+        mTiming.predictMs = WallMs() - predictStart;
 #ifdef REGISTER_TIMES
         std::chrono::steady_clock::time_point time_EndPosePred = std::chrono::steady_clock::now();
 
         double timePosePred = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndPosePred - time_StartPosePred).count();
         vdPosePred_ms.push_back(timePosePred);
 #endif
+        const double localMapStart = WallMs();
 
 
 #ifdef REGISTER_TIMES
@@ -2197,6 +2212,7 @@ void Tracking::Track()
         vdLMTrack_ms.push_back(timeLMTrack);
 #endif
 
+        mTiming.localMapMs = WallMs() - localMapStart;
         // Update drawer
         mpFrameDrawer->Update(this);
         if(mCurrentFrame.isSet())
@@ -2241,6 +2257,7 @@ void Tracking::Track()
 #ifdef REGISTER_TIMES
             std::chrono::steady_clock::time_point time_StartNewKF = std::chrono::steady_clock::now();
 #endif
+            const double keyFrameStart = WallMs();
             bool bNeedKF = NeedNewKeyFrame();
 
             // Check if we need to insert a new keyframe
@@ -2249,6 +2266,7 @@ void Tracking::Track()
                                    (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO || mSensor == System::IMU_RGBD))))
                 CreateNewKeyFrame();
 
+            mTiming.keyFrameMs = WallMs() - keyFrameStart;
 #ifdef REGISTER_TIMES
             std::chrono::steady_clock::time_point time_EndNewKF = std::chrono::steady_clock::now();
 

@@ -29,6 +29,7 @@
 #include "LocalMapping.h"
 #include "LoopClosing.h"
 #include "Frame.h"
+#include "TrackStats.h"
 #include "ORBVocabulary.h"
 #include "KeyFrameDatabase.h"
 #include "ORBextractor.h"
@@ -173,6 +174,9 @@ public:
 
 
     vector<MapPoint*> GetLocalMapMPS();
+
+    // Cost of the last GrabImageRGBD; read on the tracking thread right after it.
+    TrackTiming mTiming;
 
     bool mbWriteStats;
 

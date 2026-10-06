@@ -26,6 +26,7 @@
 #include "Tracking.h"
 #include "KeyFrameDatabase.h"
 #include "Settings.h"
+#include "TrackStats.h"
 
 #include <mutex>
 
@@ -75,6 +76,9 @@ public:
         unique_lock<std::mutex> lock(mMutexNewKFs);
         return mlNewKeyFrames.size();
     }
+
+    // Work since the previous call (keyframes processed, wall and CPU time, local BAs cut short); resets it. Any thread.
+    MappingStats TakeStats();
 
     bool IsInitializing();
     double GetCurrKFTime();
@@ -168,6 +172,9 @@ protected:
     std::list<MapPoint*> mlpRecentAddedMapPoints;
 
     std::mutex mMutexNewKFs;
+
+    std::mutex mMutexStats;
+    MappingStats mStats;
 
     bool mbAbortBA;
 

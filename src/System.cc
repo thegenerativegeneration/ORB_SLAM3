@@ -1372,6 +1372,21 @@ vector<cv::KeyPoint> System::GetTrackedKeyPointsUn()
     return mTrackedKeyPointsUn;
 }
 
+TrackTiming System::GetLastTrackTiming()
+{
+    return mpTracker->mTiming;
+}
+
+MappingStats System::TakeMappingStats()
+{
+    return mpLocalMapper->TakeStats();
+}
+
+int System::LocalMappingQueueLength()
+{
+    return mpLocalMapper->KeyframesInQueue();
+}
+
 bool System::BackEndIdle()
 {
     // LocalMapping clears AcceptKeyFrames before taking a keyframe and sets it after handing it to LoopClosing.

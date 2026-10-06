@@ -31,6 +31,7 @@
 
 #include <System.h>
 #include "ImuTypes.h"
+#include "Map.h"
 
 using namespace std;
 
@@ -178,7 +179,8 @@ int main(int argc, char **argv)
         cerr << "ERROR: cannot write " << outPrefix << "_tracking.csv\n";
         return 1;
     }
-    fTrack << "t_ns,state,state_name,has_depth,n_imu,n_tracked_mappoints\n";
+    fTrack << "t_ns,state,state_name,has_depth,n_imu,n_tracked_mappoints,total_ms,cpu_ms,extract_ms,imu_ms,"
+              "lock_wait_ms,predict_ms,local_map_ms,keyframe_ms,local_kfs,local_points,map_kfs\n";
 
     ORB_SLAM3::System SLAM(vocPath, settingsPath, ORB_SLAM3::System::IMU_RGBD, useViewer);
     const float imageScale = SLAM.GetImageScale();
@@ -200,6 +202,8 @@ int main(int argc, char **argv)
         if (it != depthByT.end()) depth = cv::imread(it->second, cv::IMREAD_UNCHANGED);
 
         int state = -2;
+        ORB_SLAM3::TrackTiming tm;
+        long mapKfs = 0;
         size_t nImuFed = 0, nMp = 0;
         double ttrack = 0;
         if (!depth.empty()) {
@@ -233,6 +237,8 @@ int main(int argc, char **argv)
                 fedAny = true;
                 ++nFed;
                 state = SLAM.GetTrackingState();
+                tm = SLAM.GetLastTrackTiming();
+                if (ORB_SLAM3::Map *activeMap = SLAM.GetActiveMap()) mapKfs = (long)activeMap->KeyFramesInMap();
                 if (lockstep)
                     while (!SLAM.BackEndIdle()) this_thread::sleep_for(chrono::microseconds(500));
                 if (state == 2 || state == 5) ++nOk;
@@ -241,7 +247,9 @@ int main(int argc, char **argv)
             }
         }
         fTrack << fr.t_ns << ',' << state << ',' << StateName(state) << ',' << (state == -2 ? 0 : 1) << ','
-               << nImuFed << ',' << nMp << '\n';
+               << nImuFed << ',' << nMp << ',' << tm.totalMs << ',' << tm.cpuMs << ',' << tm.extractMs << ','
+               << tm.imuMs << ',' << tm.lockWaitMs << ',' << tm.predictMs << ',' << tm.localMapMs << ','
+               << tm.keyFrameMs << ',' << tm.localKeyFrames << ',' << tm.localMapPoints << ',' << mapKfs << '\n';
 
         if (pace && !lockstep && state != -2) {
             double T = 0;
