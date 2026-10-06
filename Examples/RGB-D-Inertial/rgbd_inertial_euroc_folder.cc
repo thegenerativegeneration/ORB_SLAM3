@@ -122,10 +122,11 @@ ORB_SLAM3::IMU::Point ToOrb(const ImuSample &m)
 
 void Usage()
 {
-    cerr << "Usage: rgbd_inertial_euroc_folder <vocab> <settings.yaml> <seq_dir> <out_prefix> [--no-viewer] [--viewer] [--no-pace]\n"
+    cerr << "Usage: rgbd_inertial_euroc_folder <vocab> <settings.yaml> <seq_dir> <out_prefix> [--no-viewer] [--viewer] [--no-pace] [--lockstep]\n"
             "  --no-viewer  run without Pangolin viewer (default; the viewer thread crashes on macOS)\n"
             "  --viewer     enable the viewer (Linux only in practice)\n"
             "  --no-pace    feed frames as fast as possible instead of at the recorded frame rate\n"
+            "  --lockstep   after each frame wait until LocalMapping and LoopClosing are idle (repeatable runs, no pacing)\n"
             "Writes <out_prefix>_f.txt, <out_prefix>_kf.txt (EuRoC format, IMU/body frame) and <out_prefix>_tracking.csv\n";
 }
 
@@ -138,12 +139,13 @@ int main(int argc, char **argv)
         return 1;
     }
     const string vocPath = argv[1], settingsPath = argv[2], seqDir = argv[3], outPrefix = argv[4];
-    bool useViewer = false, pace = true;
+    bool useViewer = false, pace = true, lockstep = false;
     for (int i = 5; i < argc; ++i) {
         const string a = argv[i];
         if (a == "--no-viewer") useViewer = false;
         else if (a == "--viewer") useViewer = true;
         else if (a == "--no-pace") pace = false;
+        else if (a == "--lockstep") lockstep = true;
         else {
             cerr << "Unknown option " << a << "\n";
             Usage();
@@ -231,6 +233,8 @@ int main(int argc, char **argv)
                 fedAny = true;
                 ++nFed;
                 state = SLAM.GetTrackingState();
+                if (lockstep)
+                    while (!SLAM.BackEndIdle()) this_thread::sleep_for(chrono::microseconds(500));
                 if (state == 2 || state == 5) ++nOk;
                 for (ORB_SLAM3::MapPoint *mp : SLAM.GetTrackedMapPoints())
                     if (mp) ++nMp;
@@ -239,7 +243,7 @@ int main(int argc, char **argv)
         fTrack << fr.t_ns << ',' << state << ',' << StateName(state) << ',' << (state == -2 ? 0 : 1) << ','
                << nImuFed << ',' << nMp << '\n';
 
-        if (pace && state != -2) {
+        if (pace && !lockstep && state != -2) {
             double T = 0;
             if (ni + 1 < camFrames.size()) T = (camFrames[ni + 1].t_ns - fr.t_ns) * 1e-9;
             else if (ni > 0) T = (fr.t_ns - camFrames[ni - 1].t_ns) * 1e-9;

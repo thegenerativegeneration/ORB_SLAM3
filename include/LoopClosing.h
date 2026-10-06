@@ -33,6 +33,7 @@
 #endif
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"
 
 namespace ORB_SLAM3
@@ -75,6 +76,8 @@ public:
         unique_lock<std::mutex> lock(mMutexGBA);
         return mbRunningGBA;
     }
+    // No keyframe queued or being processed and no global BA running. Offline replays feed frames in lockstep with it.
+    bool IsIdle();
     bool isFinishedGBA(){
         unique_lock<std::mutex> lock(mMutexGBA);
         return mbFinishedGBA;
@@ -169,6 +172,8 @@ protected:
     std::list<KeyFrame*> mlpLoopKeyFrameQueue;
 
     std::mutex mMutexLoopQueue;
+    // A keyframe taken from the queue is being processed (set by Run).
+    std::atomic<bool> mbProcessingKeyFrame{false};
 
     // Loop detector parameters
     float mnCovisibilityConsistencyTh;

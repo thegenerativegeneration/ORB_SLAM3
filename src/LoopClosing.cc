@@ -93,6 +93,7 @@ void LoopClosing::Run()
 
     while(1)
     {
+        mbProcessingKeyFrame = false;
 
         //NEW LOOP AND MERGE DETECTION ALGORITHM
         //----------------------------
@@ -100,6 +101,7 @@ void LoopClosing::Run()
 
         if(CheckNewKeyFrames())
         {
+            mbProcessingKeyFrame = true;
             if(mpLastCurrentKF)
             {
                 mpLastCurrentKF->mvpLoopCandKFs.clear();
@@ -296,6 +298,7 @@ void LoopClosing::Run()
             mpLastCurrentKF = mpCurrentKF;
         }
 
+        mbProcessingKeyFrame = false;
         ResetIfRequested();
 
         if(CheckFinish()){
@@ -319,6 +322,18 @@ bool LoopClosing::CheckNewKeyFrames()
 {
     unique_lock<mutex> lock(mMutexLoopQueue);
     return(!mlpLoopKeyFrameQueue.empty());
+}
+
+bool LoopClosing::IsIdle()
+{
+    // Queue first, then the flag: Run sets the flag before it takes a keyframe from the queue, so an empty queue
+    // followed by a clear flag means no keyframe is in work.
+    {
+        unique_lock<mutex> lock(mMutexLoopQueue);
+        if (!mlpLoopKeyFrameQueue.empty()) return false;
+    }
+    if (mbProcessingKeyFrame) return false;
+    return !isRunningGBA();
 }
 
 bool LoopClosing::NewDetectCommonRegions()

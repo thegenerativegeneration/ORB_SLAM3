@@ -180,6 +180,8 @@ public:
     int GetTrackingState();
     std::vector<MapPoint*> GetTrackedMapPoints();
     std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
+    // LocalMapping has no keyframe queued or in work and LoopClosing is idle (offline replays in lockstep).
+    bool BackEndIdle();
 
     // For debugging
     double GetTimeFromIMUInit();
