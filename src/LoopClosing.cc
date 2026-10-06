@@ -2036,6 +2036,8 @@ void LoopClosing::MergeLocal2()
 
     // TODO Check: If new map is too small, we suppose that not informaiton can be propagated from new to old map
     if (numKFnew<10){
+        // The map has had BA2 since the block above; this merge moves it no further.
+        pCurrentMap->SetInertialSettled();
         mpLocalMapper->Release();
         return;
     }
@@ -2050,6 +2052,9 @@ void LoopClosing::MergeLocal2()
     //cout << "start MergeInertialBA" << endl;
     Optimizer::MergeInertialBA(pCurrKF, mpMergeMatchedKF, &bStopFlag, pCurrentMap,CorrectedSim3);
     //cout << "end MergeInertialBA" << endl;
+
+    // The map has had BA2 since the block above and MergeInertialBA was this merge's last move.
+    pCurrentMap->SetInertialSettled();
 
     /*good = pCurrentMap->CheckEssentialGraph();
     if(!good)

@@ -217,13 +217,16 @@ void LocalMapping::Run()
                         else if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2()){
                             if (mTinit>15.0f){
                                 cout << "start VIBA 2" << endl;
-                                mpCurrentKeyFrame->GetMap()->SetIniertialBA2();
+                                Map* pBA2Map = mpCurrentKeyFrame->GetMap();
+                                pBA2Map->SetIniertialBA2();
                                 if (mbMonocular)
                                     InitializeIMU(0.f, 0.f, true);
                                 else
                                     InitializeIMU(0.f, 0.f, true);
 
                                 cout << "end VIBA 2" << endl;
+                                // BA2 is never retried, so the map is settled even when InitializeIMU returned early.
+                                pBA2Map->SetInertialSettled();
                             }
                         }
 

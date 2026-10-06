@@ -133,6 +133,10 @@ public:
     void SetIniertialBA2();
     bool GetIniertialBA1();
     bool GetIniertialBA2();
+    // Set once the inertial initialisation that completes BA2 has written all its poses: from then on IMU
+    // initialisation no longer moves the map (GetIniertialBA2 turns true before that stage runs).
+    void SetInertialSettled();
+    bool GetInertialSettled();
 
     void PrintEssentialGraph();
     bool CheckEssentialGraph();
@@ -207,6 +211,7 @@ protected:
     bool mbIsInertial;
     bool mbIMU_BA1;
     bool mbIMU_BA2;
+    bool mbInertialSettled = false;
 
     // Mutex
     std::mutex mMutexMap;

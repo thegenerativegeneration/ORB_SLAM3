@@ -231,6 +231,7 @@ void Map::clear()
     mvpKeyFrameOrigins.clear();
     mbIMU_BA1 = false;
     mbIMU_BA2 = false;
+    mbInertialSettled = false;
 }
 
 bool Map::IsInUse()
@@ -316,6 +317,18 @@ bool Map::GetIniertialBA2()
 {
     unique_lock<mutex> lock(mMutexMap);
     return mbIMU_BA2;
+}
+
+void Map::SetInertialSettled()
+{
+    unique_lock<mutex> lock(mMutexMap);
+    mbInertialSettled = true;
+}
+
+bool Map::GetInertialSettled()
+{
+    unique_lock<mutex> lock(mMutexMap);
+    return mbInertialSettled;
 }
 
 void Map::ChangeId(long unsigned int nId)
