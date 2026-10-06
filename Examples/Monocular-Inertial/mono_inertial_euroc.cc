@@ -23,6 +23,8 @@
 #include<chrono>
 #include <ctime>
 #include <sstream>
+#include <cstdlib>
+#include <unistd.h>
 
 #include<opencv2/core/core.hpp>
 
@@ -117,7 +119,13 @@ int main(int argc, char *argv[])
     cout.precision(17);
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::IMU_MONOCULAR, true);
+#ifdef __APPLE__
+    // Pangolin windows must live on the main thread on macOS; the viewer thread crashes there.
+    const bool bUseViewer = getenv("ORBSLAM3_VIEWER") != nullptr;
+#else
+    const bool bUseViewer = true;
+#endif
+    ORB_SLAM3::System SLAM(argv[1],argv[2],ORB_SLAM3::System::IMU_MONOCULAR, bUseViewer);
     float imageScale = SLAM.GetImageScale();
 
     double t_resize = 0.f;
