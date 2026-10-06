@@ -28,8 +28,12 @@
 
 #include <set>
 #include <mutex>
+#ifdef ORBSLAM3_NO_SERIALIZATION
+#include "SerializationStub.h"
+#else
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/export.hpp>
+#endif
 
 
 namespace ORB_SLAM3

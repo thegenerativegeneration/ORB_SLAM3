@@ -14,8 +14,12 @@
 #include <map>
 #include <vector>
 
+#ifdef ORBSLAM3_NO_SERIALIZATION
+#include "SerializationStub.h"
+#else
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/map.hpp>
+#endif
 
 namespace DBoW2 {
 

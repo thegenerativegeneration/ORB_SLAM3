@@ -29,9 +29,13 @@
 #include "ORBVocabulary.h"
 #include "Map.h"
 
+#ifdef ORBSLAM3_NO_SERIALIZATION
+#include "SerializationStub.h"
+#else
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/list.hpp>
+#endif
 
 #include<mutex>
 

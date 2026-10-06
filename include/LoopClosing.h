@@ -28,7 +28,9 @@
 
 #include "KeyFrameDatabase.h"
 
+#ifndef ORBSLAM3_NO_SERIALIZATION // unused; guarded so the minimal build needs no Boost at all
 #include <boost/algorithm/string.hpp>
+#endif
 #include <thread>
 #include <mutex>
 #include "Thirdparty/g2o/g2o/types/types_seven_dof_expmap.h"

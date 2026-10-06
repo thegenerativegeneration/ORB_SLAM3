@@ -24,14 +24,24 @@
 #include "KeyFrame.h"
 
 #include <set>
+#ifndef ORBSLAM3_NO_VIEWER
 #include <pangolin/pangolin.h>
+#endif
 #include <mutex>
 
+#ifdef ORBSLAM3_NO_SERIALIZATION
+#include "SerializationStub.h"
+#else
 #include <boost/serialization/base_object.hpp>
+#endif
 
 
 namespace ORB_SLAM3
 {
+#ifdef ORBSLAM3_NO_VIEWER
+typedef unsigned char GLubyte; // OpenGL type of the unused Map::mThumbnail; Pangolin normally provides it
+#endif
+
 
 class MapPoint;
 class KeyFrame;

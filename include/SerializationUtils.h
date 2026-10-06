@@ -19,8 +19,12 @@
 #ifndef SERIALIZATION_UTILS_H
 #define SERIALIZATION_UTILS_H
 
+#ifdef ORBSLAM3_NO_SERIALIZATION
+#include "SerializationStub.h"
+#else
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
+#endif
 
 #include <sophus/se3.hpp>
 #include <Eigen/Core>

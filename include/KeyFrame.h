@@ -34,9 +34,13 @@
 
 #include <mutex>
 
+#ifdef ORBSLAM3_NO_SERIALIZATION
+#include "SerializationStub.h"
+#else
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/map.hpp>
+#endif
 
 
 namespace ORB_SLAM3

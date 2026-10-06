@@ -21,8 +21,11 @@
 #include "System.h"
 #include "Converter.h"
 #include <thread>
+#ifndef ORBSLAM3_NO_VIEWER
 #include <pangolin/pangolin.h>
+#endif
 #include <iomanip>
+#ifndef ORBSLAM3_NO_SERIALIZATION
 #include <openssl/md5.h>
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/string.hpp>
@@ -32,11 +35,21 @@
 #include <boost/archive/binary_oarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
+#endif
 
 namespace ORB_SLAM3
 {
 
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
+
+// "*.bin" -> DBoW2 binary vocabulary (see TemplatedVocabulary::saveToBinaryFile), anything else -> text.
+static bool LoadVocabulary(ORBVocabulary* pVoc, const string &strVocFile)
+{
+    const string ext = ".bin";
+    if(strVocFile.size() >= ext.size() && strVocFile.compare(strVocFile.size()-ext.size(), ext.size(), ext) == 0)
+        return pVoc->loadFromBinaryFile(strVocFile);
+    return pVoc->loadFromTextFile(strVocFile);
+}
 
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
                const bool bUseViewer, const int initFr, const string &strSequence):
@@ -115,7 +128,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
         mpVocabulary = new ORBVocabulary();
-        bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+        bool bVocLoad = LoadVocabulary(mpVocabulary, strVocFile);
         if(!bVocLoad)
         {
             cerr << "Wrong path to vocabulary. " << endl;
@@ -137,7 +150,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
         mpVocabulary = new ORBVocabulary();
-        bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
+        bool bVocLoad = LoadVocabulary(mpVocabulary, strVocFile);
         if(!bVocLoad)
         {
             cerr << "Wrong path to vocabulary. " << endl;
@@ -226,7 +239,13 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     //usleep(10*1000*1000);
 
     //Initialize the Viewer thread and launch
+#ifdef ORBSLAM3_NO_VIEWER
     if(bUseViewer)
+        cout << "Built with ORBSLAM3_NO_VIEWER: viewer disabled." << endl;
+    if(false)
+#else
+    if(bUseViewer)
+#endif
     //if(false) // TODO
     {
         mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile,settings_);
@@ -1407,6 +1426,10 @@ void System::InsertTrackTime(double& time)
 #endif
 
 void System::SaveAtlas(int type){
+#ifdef ORBSLAM3_NO_SERIALIZATION
+    if(!mStrSaveAtlasToFile.empty())
+        cout << "Built with ORBSLAM3_NO_SERIALIZATION: atlas not saved." << endl;
+#else
     if(!mStrSaveAtlasToFile.empty())
     {
         //clock_t start = clock();
@@ -1446,10 +1469,15 @@ void System::SaveAtlas(int type){
             cout << "End to write save binary file" << endl;
         }
     }
+#endif
 }
 
 bool System::LoadAtlas(int type)
 {
+#ifdef ORBSLAM3_NO_SERIALIZATION
+    cout << "Built with ORBSLAM3_NO_SERIALIZATION: cannot load an atlas." << endl;
+    return false;
+#else
     string strFileVoc, strVocChecksum;
     bool isRead = false;
 
@@ -1509,11 +1537,15 @@ bool System::LoadAtlas(int type)
         return true;
     }
     return false;
+#endif
 }
 
 string System::CalculateCheckSum(string filename, int type)
 {
     string checksum = "";
+#ifdef ORBSLAM3_NO_SERIALIZATION
+    return checksum;
+#else
 
     unsigned char c[MD5_DIGEST_LENGTH];
 
@@ -1549,6 +1581,7 @@ string System::CalculateCheckSum(string filename, int type)
     }
 
     return checksum;
+#endif
 }
 
 } //namespace ORB_SLAM

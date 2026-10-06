@@ -30,9 +30,13 @@
 #include <opencv2/core/core.hpp>
 #include <mutex>
 
+#ifdef ORBSLAM3_NO_SERIALIZATION
+#include "SerializationStub.h"
+#else
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/array.hpp>
 #include <boost/serialization/map.hpp>
+#endif
 
 namespace ORB_SLAM3
 {

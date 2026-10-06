@@ -26,6 +26,9 @@
 #include <algorithm>
 #include <opencv2/core/core.hpp>
 #include <limits>
+#include <cstdint>
+#include <cstring>
+#include <iostream>
 
 #include "FeatureVector.h"
 #include "BowVector.h"
@@ -245,6 +248,17 @@ public:
    * @param filename
    */
   void saveToTextFile(const std::string &filename) const;  
+
+  /**
+   * Loads/saves the vocabulary in a compact binary format (node array as in memory
+   * after loadFromTextFile, so text and binary loads give identical vocabularies).
+   * Only for descriptors stored as 1 x F::L CV_8U cv::Mat (FORB).
+   * Layout (little endian): "DBOW2BIN", u32 version=1, i32 k, i32 L, i32 scoring,
+   * i32 weighting, u32 node count (without root), u32 descriptor bytes, then per node
+   * (ids 1..n): u32 parent, u8 is_word, descriptor bytes, f64 weight.
+   */
+  bool loadFromBinaryFile(const std::string &filename);
+  bool saveToBinaryFile(const std::string &filename) const;
 
   /**
    * Saves the vocabulary into a file
@@ -1446,6 +1460,122 @@ void TemplatedVocabulary<TDescriptor,F>::saveToTextFile(const std::string &filen
     }
 
     f.close();
+}
+
+// --------------------------------------------------------------------------
+
+template<class TDescriptor, class F>
+bool TemplatedVocabulary<TDescriptor,F>::saveToBinaryFile(const std::string &filename) const
+{
+    std::ofstream f(filename.c_str(), std::ios::out | std::ios::binary);
+    if(!f.is_open())
+        return false;
+
+    const uint32_t version = 1, nNodes = m_nodes.empty() ? 0 : (uint32_t)(m_nodes.size()-1), descBytes = F::L;
+    const int32_t header[4] = {m_k, m_L, (int32_t)m_scoring, (int32_t)m_weighting};
+    f.write("DBOW2BIN", 8);
+    f.write((const char*)&version, sizeof(version));
+    f.write((const char*)header, sizeof(header));
+    f.write((const char*)&nNodes, sizeof(nNodes));
+    f.write((const char*)&descBytes, sizeof(descBytes));
+
+    for(size_t i=1; i<m_nodes.size(); i++)
+    {
+        const Node& node = m_nodes[i];
+        if(node.descriptor.type() != CV_8U || node.descriptor.total() != (size_t)F::L || !node.descriptor.isContinuous())
+            return false;
+        const uint32_t parent = node.parent;
+        const uint8_t isWord = (node.word_id < m_words.size() && m_words[node.word_id] == &node) ? 1 : 0;
+        const double weight = node.weight;
+        f.write((const char*)&parent, sizeof(parent));
+        f.write((const char*)&isWord, sizeof(isWord));
+        f.write((const char*)node.descriptor.data, F::L);
+        f.write((const char*)&weight, sizeof(weight));
+    }
+    return f.good();
+}
+
+// --------------------------------------------------------------------------
+
+template<class TDescriptor, class F>
+bool TemplatedVocabulary<TDescriptor,F>::loadFromBinaryFile(const std::string &filename)
+{
+    std::ifstream f(filename.c_str(), std::ios::in | std::ios::binary);
+    if(!f.is_open())
+        return false;
+
+    char magic[8];
+    uint32_t version = 0, nNodes = 0, descBytes = 0;
+    int32_t header[4];
+    f.read(magic, 8);
+    f.read((char*)&version, sizeof(version));
+    f.read((char*)header, sizeof(header));
+    f.read((char*)&nNodes, sizeof(nNodes));
+    f.read((char*)&descBytes, sizeof(descBytes));
+    if(!f.good() || std::string(magic, 8) != "DBOW2BIN" || version != 1 || descBytes != (uint32_t)F::L)
+    {
+        std::cerr << "Vocabulary loading failure: not a DBoW2 binary vocabulary (v1, " << F::L << "-byte descriptors)" << endl;
+        return false;
+    }
+    m_k = header[0];
+    m_L = header[1];
+    if(m_k<0 || m_k>20 || m_L<1 || m_L>10 || header[2]<0 || header[2]>5 || header[3]<0 || header[3]>3)
+    {
+        std::cerr << "Vocabulary loading failure: bad binary header" << endl;
+        return false;
+    }
+    m_scoring = (ScoringType)header[2];
+    m_weighting = (WeightingType)header[3];
+    createScoringObject();
+
+    const size_t recBytes = sizeof(uint32_t) + 1 + F::L + sizeof(double);
+    std::vector<char> buf((size_t)nNodes * recBytes);
+    f.read(buf.data(), buf.size());
+    if((size_t)f.gcount() != buf.size())
+    {
+        std::cerr << "Vocabulary loading failure: truncated binary file" << endl;
+        return false;
+    }
+
+    m_words.clear();
+    m_nodes.clear();
+    m_nodes.resize((size_t)nNodes + 1);
+    m_nodes[0].id = 0;
+    m_words.reserve(nNodes);
+
+    const char* p = buf.data();
+    for(NodeId nid = 1; nid <= nNodes; nid++, p += recBytes)
+    {
+        uint32_t parent;
+        double weight;
+        memcpy(&parent, p, sizeof(parent));
+        const bool isWord = p[sizeof(parent)] != 0;
+        memcpy(&weight, p + sizeof(parent) + 1 + F::L, sizeof(weight));
+        if(parent >= nid)
+        {
+            std::cerr << "Vocabulary loading failure: bad parent id" << endl;
+            return false;
+        }
+
+        Node& node = m_nodes[nid];
+        node.id = nid;
+        node.parent = parent;
+        m_nodes[parent].children.push_back(nid);
+        node.descriptor.create(1, F::L, CV_8U);
+        memcpy(node.descriptor.data, p + sizeof(parent) + 1, F::L);
+        node.weight = weight;
+
+        if(isWord)
+        {
+            node.word_id = m_words.size();
+            m_words.push_back(&node);
+        }
+        else
+        {
+            node.children.reserve(m_k);
+        }
+    }
+    return true;
 }
 
 // --------------------------------------------------------------------------

@@ -18,7 +18,9 @@
 
 
 #include "Viewer.h"
+#ifndef ORBSLAM3_NO_VIEWER
 #include <pangolin/pangolin.h>
+#endif
 
 #include <mutex>
 
@@ -161,6 +163,10 @@ bool Viewer::ParseViewerParamFile(cv::FileStorage &fSettings)
 
 void Viewer::Run()
 {
+#ifdef ORBSLAM3_NO_VIEWER
+    // Built without Pangolin: nothing to draw.
+    SetFinish();
+#else
     mbFinished = false;
     mbStopped = false;
 
@@ -381,6 +387,7 @@ void Viewer::Run()
     }
 
     SetFinish();
+#endif // ORBSLAM3_NO_VIEWER
 }
 
 void Viewer::RequestFinish()

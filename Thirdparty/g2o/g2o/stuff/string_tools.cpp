@@ -37,7 +37,15 @@
 #include <iostream>
 #include <iterator>
 
-#if (defined (UNIX) || defined(CYGWIN)) && !defined(ANDROID)
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+// wordexp() is unavailable on iOS
+#if (defined (UNIX) || defined(CYGWIN)) && !defined(ANDROID) && !(defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
+#define G2O_HAVE_WORDEXP 1
+#endif
+
+#ifdef G2O_HAVE_WORDEXP
 #include <wordexp.h>
 #endif
 
@@ -123,7 +131,7 @@ int strPrintf(std::string& str, const char* fmt, ...)
 
 std::string strExpandFilename(const std::string& filename)
 {
-#if (defined (UNIX) || defined(CYGWIN)) && !defined(ANDROID)
+#ifdef G2O_HAVE_WORDEXP
   string result = filename;
   wordexp_t p;
 

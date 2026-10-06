@@ -31,8 +31,12 @@
 
 #include "SerializationUtils.h"
 
+#ifdef ORBSLAM3_NO_SERIALIZATION
+#include "SerializationStub.h"
+#else
 #include <boost/serialization/serialization.hpp>
 #include <boost/serialization/vector.hpp>
+#endif
 
 namespace ORB_SLAM3
 {
