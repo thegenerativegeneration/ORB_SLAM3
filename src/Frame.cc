@@ -229,9 +229,8 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
 
     N = mvKeys.size();
 
-    if(mvKeys.empty())
-        return;
-
+    // A frame without keypoints (dark or featureless image) is still built completely: returning here would leave
+    // mpMutexImu, Nleft and the grid unset, and Tracking preintegrates IMU on every frame (Frame::setIntegrated).
     UndistortKeyPoints();
 
     ComputeStereoFromRGBD(imDepth);
@@ -746,7 +745,7 @@ void Frame::ComputeBoW()
 
 void Frame::UndistortKeyPoints()
 {
-    if(mDistCoef.at<float>(0)==0.0)
+    if(mDistCoef.at<float>(0)==0.0 || N==0)
     {
         mvKeysUn=mvKeys;
         return;
