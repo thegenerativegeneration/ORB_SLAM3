@@ -857,17 +857,22 @@ bool LocalMapping::stopRequested()
 
 void LocalMapping::Release()
 {
-    unique_lock<mutex> lock(mMutexStop);
-    unique_lock<mutex> lock2(mMutexFinish);
-    if(mbFinished)
-        return;
-    mbStopped = false;
-    mbStopRequested = false;
-    for(list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend=mlNewKeyFrames.end(); lit!=lend; lit++)
-        delete *lit;
-    mlNewKeyFrames.clear();
+    list<KeyFrame*> lQueued;
+    {
+        unique_lock<mutex> lock(mMutexStop);
+        unique_lock<mutex> lock2(mMutexFinish);
+        if(mbFinished)
+            return;
+        mbStopped = false;
+        mbStopRequested = false;
+        lQueued.swap(mlNewKeyFrames);
 
-    cout << "Local Mapping RELEASE" << endl;
+        cout << "Local Mapping RELEASE" << endl;
+    }
+    // Dropped keyframes are flagged bad, not freed: a tracked frame may still hold one as its reference keyframe.
+    // Flagged outside the stop/finish locks, since SetBadFlag takes keyframe, map point and map locks.
+    for(KeyFrame* pKF : lQueued)
+        pKF->SetBadFlag();
 }
 
 bool LocalMapping::AcceptKeyFrames()
@@ -1411,11 +1416,9 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     mnKFs=vpKF.size();
     mIdxInit++;
 
+    // Flagged bad, not freed: a tracked frame may still hold a queued keyframe as its reference keyframe.
     for(list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend=mlNewKeyFrames.end(); lit!=lend; lit++)
-    {
         (*lit)->SetBadFlag();
-        delete *lit;
-    }
     mlNewKeyFrames.clear();
 
     mpTracker->mState=Tracking::OK;
@@ -1480,11 +1483,9 @@ void LocalMapping::ScaleRefinement()
     }
     std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 
+    // Flagged bad, not freed: a tracked frame may still hold a queued keyframe as its reference keyframe.
     for(list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend=mlNewKeyFrames.end(); lit!=lend; lit++)
-    {
         (*lit)->SetBadFlag();
-        delete *lit;
-    }
     mlNewKeyFrames.clear();
 
     double t_inertial_only = std::chrono::duration_cast<std::chrono::duration<double> >(t1 - t0).count();
