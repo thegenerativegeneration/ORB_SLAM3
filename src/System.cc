@@ -1393,6 +1393,13 @@ bool System::BackEndIdle()
     return mpLocalMapper->KeyframesInQueue() == 0 && mpLocalMapper->AcceptKeyFrames() && mpLoopCloser->IsIdle();
 }
 
+void System::BackEndState(int &keyframesInQueue, bool &acceptKeyFrames, bool &loopClosingIdle)
+{
+    keyframesInQueue = mpLocalMapper->KeyframesInQueue();
+    acceptKeyFrames = mpLocalMapper->AcceptKeyFrames();
+    loopClosingIdle = mpLoopCloser->IsIdle();
+}
+
 double System::GetTimeFromIMUInit()
 {
     double aux = mpLocalMapper->GetCurrKFTime()-mpLocalMapper->mFirstTs;

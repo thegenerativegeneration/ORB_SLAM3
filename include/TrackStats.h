@@ -43,7 +43,9 @@ struct MappingStats
     double wallMs = 0;    ///< their wall time, from ProcessNewKeyFrame to the hand-over to LoopClosing, summed
     double cpuMs = 0;     ///< the LocalMapping thread's CPU time over the same spans, summed
     double maxWallMs = 0; ///< the longest one
-    int abortedBA = 0;    ///< local bundle adjustments cut short by a newer keyframe
+    int abortedBA = 0;    ///< local bundle adjustments with an abort request pending when they returned: a newer
+                          ///< keyframe (also one queued just after the BA finished), Tracking's InterruptBA, or a
+                          ///< stop request from LoopClosing or a reset
 };
 
 } // namespace ORB_SLAM3

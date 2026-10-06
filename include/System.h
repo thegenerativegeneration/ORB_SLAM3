@@ -188,6 +188,8 @@ public:
     int LocalMappingQueueLength();
     // LocalMapping has no keyframe queued or in work and LoopClosing is idle (offline replays in lockstep).
     bool BackEndIdle();
+    // The three conditions BackEndIdle combines, each read once (diagnostics for a back end that stays busy).
+    void BackEndState(int &keyframesInQueue, bool &acceptKeyFrames, bool &loopClosingIdle);
 
     // For debugging
     double GetTimeFromIMUInit();

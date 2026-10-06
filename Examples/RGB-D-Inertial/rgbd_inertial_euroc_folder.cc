@@ -121,6 +121,27 @@ ORB_SLAM3::IMU::Point ToOrb(const ImuSample &m)
     return ORB_SLAM3::IMU::Point(m.ax, m.ay, m.az, m.wx, m.wy, m.wz, m.t_ns * 1e-9);
 }
 
+// Lockstep: blocks until LocalMapping and LoopClosing are idle. A back end still busy after 60 s is reported with
+// the conditions that keep it busy; the process then exits with status 2 (the SLAM threads cannot be joined).
+void WaitForIdleBackEnd(ORB_SLAM3::System &slam, ofstream &fTrack, int64_t t_ns)
+{
+    const auto deadline = chrono::steady_clock::now() + chrono::seconds(60);
+    while (!slam.BackEndIdle()) {
+        if (chrono::steady_clock::now() > deadline) {
+            int queued = 0;
+            bool accept = false, loopIdle = false;
+            slam.BackEndState(queued, accept, loopIdle);
+            cerr << "ERROR: --lockstep: back end still busy 60 s after frame " << t_ns << ":"
+                 << (queued != 0 ? " KeyframesInQueue=" + to_string(queued) : "")
+                 << (!accept ? " AcceptKeyFrames=false" : "") << (!loopIdle ? " LoopClosing::IsIdle=false" : "")
+                 << (queued == 0 && accept && loopIdle ? " none (idle when re-read)" : "") << endl;
+            fTrack.close();
+            _Exit(2);
+        }
+        this_thread::sleep_for(chrono::microseconds(500));
+    }
+}
+
 void Usage()
 {
     cerr << "Usage: rgbd_inertial_euroc_folder <vocab> <settings.yaml> <seq_dir> <out_prefix> [--no-viewer] [--viewer] [--no-pace] [--lockstep]\n"
@@ -179,6 +200,8 @@ int main(int argc, char **argv)
         cerr << "ERROR: cannot write " << outPrefix << "_tracking.csv\n";
         return 1;
     }
+    // map_kfs is read right after TrackRGBD, before the lockstep wait. LocalMapping adds a new keyframe to the map on
+    // its own thread, so the count usually lags one keyframe on frames that created one.
     fTrack << "t_ns,state,state_name,has_depth,n_imu,n_tracked_mappoints,total_ms,cpu_ms,extract_ms,imu_ms,"
               "lock_wait_ms,predict_ms,local_map_ms,keyframe_ms,local_kfs,local_points,map_kfs\n";
 
@@ -239,8 +262,7 @@ int main(int argc, char **argv)
                 state = SLAM.GetTrackingState();
                 tm = SLAM.GetLastTrackTiming();
                 if (ORB_SLAM3::Map *activeMap = SLAM.GetActiveMap()) mapKfs = (long)activeMap->KeyFramesInMap();
-                if (lockstep)
-                    while (!SLAM.BackEndIdle()) this_thread::sleep_for(chrono::microseconds(500));
+                if (lockstep) WaitForIdleBackEnd(SLAM, fTrack, fr.t_ns);
                 if (state == 2 || state == 5) ++nOk;
                 for (ORB_SLAM3::MapPoint *mp : SLAM.GetTrackedMapPoints())
                     if (mp) ++nMp;
