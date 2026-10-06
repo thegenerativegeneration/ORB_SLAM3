@@ -519,6 +519,17 @@ bool System::MapChanged()
         return false;
 }
 
+Map* System::GetActiveMap()
+{
+    return mpAtlas->GetCurrentMap();
+}
+
+KeyFrame* System::GetReferenceKeyFrame()
+{
+    unique_lock<mutex> lock(mMutexState);
+    return mpTracker->mCurrentFrame.mpReferenceKF;
+}
+
 void System::Reset()
 {
     unique_lock<mutex> lock(mMutexReset);

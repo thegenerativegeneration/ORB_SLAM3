@@ -129,6 +129,10 @@ public:
     // Returns true if there have been a big map change (loop closure, global BA)
     // since last call to this function
     bool MapChanged();
+    // Map the tracker currently works in (the Atlas's active map).
+    Map* GetActiveMap();
+    // Reference keyframe of the last tracked frame; nullptr before the first keyframe.
+    KeyFrame* GetReferenceKeyFrame();
 
     // Reset the system (clear Atlas or the active map)
     void Reset();
