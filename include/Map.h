@@ -68,6 +68,16 @@ struct FrameMoveState
     Sophus::SE3f gauge;
 };
 
+class Map;
+
+/// A map's frame-move state as Tracking::Track read it on return, still holding that map's mMutexMapUpdate: the
+/// frame's pose belongs to this state. `map` is null when Track returned before taking the lock.
+struct TrackedFrameMoves
+{
+    Map* map = nullptr;
+    FrameMoveState moves;
+};
+
 class Map
 {
     friend class boost::serialization::access;

@@ -183,6 +183,8 @@ public:
     std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
     // Cost of the frame the last TrackRGBD processed. Call right after TrackRGBD, on the same thread.
     TrackTiming GetLastTrackTiming();
+    // The map's frame-move state the last tracked frame's pose belongs to (see TrackedFrameMoves). Tracking thread.
+    TrackedFrameMoves GetLastTrackedFrameMoves();
     // LocalMapping's work since the previous call (which resets it), and its keyframe queue now. Any thread.
     MappingStats TakeMappingStats();
     // LoopClosing's loop, merge and global-BA events since the previous call (which resets them). Any thread.

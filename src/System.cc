@@ -1377,6 +1377,11 @@ TrackTiming System::GetLastTrackTiming()
     return mpTracker->mTiming;
 }
 
+TrackedFrameMoves System::GetLastTrackedFrameMoves()
+{
+    return mpTracker->mTrackedMoves;
+}
+
 MappingStats System::TakeMappingStats()
 {
     return mpLocalMapper->TakeStats();

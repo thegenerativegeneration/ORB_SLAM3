@@ -1810,6 +1810,7 @@ void Tracking::ResetFrameIMU()
 
 void Tracking::Track()
 {
+    mTrackedMoves = TrackedFrameMoves();
 
     if (bStepByStep)
     {
@@ -1905,6 +1906,13 @@ void Tracking::Track()
     const double lockStart = WallMs();
     unique_lock<mutex> lock(pCurrentMap->mMutexMapUpdate);
     mTiming.lockWaitMs = WallMs() - lockStart;
+    // Destroyed before `lock` on every return below: records the state the frame's pose belongs to.
+    struct RecordFrameMoves
+    {
+        TrackedFrameMoves &out;
+        Map *map;
+        ~RecordFrameMoves() { out.map = map; out.moves = map->GetFrameMoveState(); }
+    } recordFrameMoves{mTrackedMoves, pCurrentMap};
 
     mbMapUpdated = false;
 

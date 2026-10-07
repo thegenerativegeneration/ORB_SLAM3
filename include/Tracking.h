@@ -177,6 +177,8 @@ public:
 
     // Cost of the last GrabImageRGBD; read on the tracking thread right after it.
     TrackTiming mTiming;
+    // The current map's frame-move state as the last Track left it; read on the tracking thread right after it.
+    TrackedFrameMoves mTrackedMoves;
 
     bool mbWriteStats;
 
