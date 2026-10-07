@@ -135,7 +135,8 @@ void WaitForIdleBackEnd(ORB_SLAM3::System &slam, ofstream &fTrack, int64_t t_ns)
             int queued = 0;
             bool accept = false, loopIdle = false;
             slam.BackEndState(queued, accept, loopIdle);
-            cerr << "ERROR: --lockstep: back end still busy " << kLockstepDeadline.count() << " s after frame " << t_ns << ":"
+            cerr << "ERROR: --lockstep: back end still busy " << kLockstepDeadline.count() << " s after frame "
+                 << t_ns << ":"
                  << (queued != 0 ? " KeyframesInQueue=" + to_string(queued) : "")
                  << (!accept ? " AcceptKeyFrames=false" : "") << (!loopIdle ? " LoopClosing::IsIdle=false" : "")
                  << (queued == 0 && accept && loopIdle ? " none (idle when re-read)" : "") << endl;

@@ -142,7 +142,11 @@ public:
     // Counts moves of the map's frame (IMU initialisation, loop correction, merges, global BA); local BA does not
     // move it. Bumped inside mMutexMapUpdate after the pose writes, with the kind of move (FrameMoveKind).
     int GetFrameMoveIndex();
+    // All frame-move counters and the gauge at once; read under mMutexMapUpdate, like the index, to see them
+    // together with the poses they describe.
     FrameMoveState GetFrameMoveState();
+    // A rigid kind (ImuInit, ScaleRefinement, MergeRigid) must follow its ApplyScaledRotation within the same
+    // mMutexMapUpdate hold, so the gauge and the index change together for a reader.
     void IncreaseFrameMoveIndex(FrameMoveKind kind);
     int GetLastMapChange();
     void SetLastMapChange(int currentChangeId);

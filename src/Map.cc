@@ -232,8 +232,12 @@ void Map::clear()
     mbIMU_BA1 = false;
     mbIMU_BA2 = false;
     mbInertialSettled = false;
+    // The same Map object lives on after a reset: bump both indices so a reader holding the old gauge sees a
+    // non-rigid discontinuity instead of following the change of gauge to identity.
     mTgauge = Sophus::SE3f();
     mnLastFrameMoveKind = -1;
+    mnFrameMoveIdx++;
+    mnNonRigidMoveIdx++;
 }
 
 bool Map::IsInUse()

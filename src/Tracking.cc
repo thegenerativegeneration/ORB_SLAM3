@@ -132,7 +132,8 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     // Optional replay levers; absent keys keep upstream behaviour (no cap, a keyframe at least every 0.5 s).
     cv::FileStorage levers(strSettingPath, cv::FileStorage::READ);
     if (levers.isOpened()) {
-        if (!levers["Tracking.MaxLocalKeyFrames"].empty()) mnMaxLocalKeyFrames = (int)levers["Tracking.MaxLocalKeyFrames"];
+        if (!levers["Tracking.MaxLocalKeyFrames"].empty())
+            mnMaxLocalKeyFrames = (int)levers["Tracking.MaxLocalKeyFrames"];
         if (!levers["Tracking.InertialKeyFrameInterval"].empty())
             mInertialKeyFrameInterval = (double)levers["Tracking.InertialKeyFrameInterval"];
     }

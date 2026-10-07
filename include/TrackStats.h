@@ -53,14 +53,16 @@ struct MappingStats
 struct LoopStats
 {
     int loopsDetected = 0;          ///< place recognition found a loop in the active map
-    int loopsRejected = 0;          ///< inertial loops dropped as "BAD LOOP" (roll/pitch or yaw of the correction too large)
+    int loopsRejected = 0;          ///< inertial loops dropped as "BAD LOOP" (roll/pitch or yaw of the correction
+                                    ///< too large)
     int loopsCorrected = 0;         ///< CorrectLoop runs
     int merges = 0;                 ///< MergeLocal or MergeLocal2 runs
     int gbaStarted = 0, gbaFinished = 0, gbaAborted = 0;
     double maxCorrectionM = 0;      ///< largest translation of a detected inertial loop's world correction
     double maxCorrectionYawDeg = 0; ///< largest |yaw| of it
     double correctLoopMaxMs = 0;    ///< longest CorrectLoop wall time
-    int maxLagKeyFrames = 0;        ///< largest id gap between the tracker's last keyframe and the loop keyframe at CorrectLoop
+    int maxLagKeyFrames = 0;        ///< largest id gap between the tracker's last keyframe and the loop keyframe
+                                    ///< at CorrectLoop
 };
 
 } // namespace ORB_SLAM3

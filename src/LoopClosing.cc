@@ -261,7 +261,8 @@ void LoopClosing::Run()
                         {
                             unique_lock<mutex> lock(mMutexLoopStats);
                             mLoopStats.maxCorrectionM = max(mLoopStats.maxCorrectionM, g2oSww_new.translation().norm());
-                            mLoopStats.maxCorrectionYawDeg = max(mLoopStats.maxCorrectionYawDeg, fabs(phi(2)) * 180.0 / M_PI);
+                            mLoopStats.maxCorrectionYawDeg =
+                                max(mLoopStats.maxCorrectionYawDeg, fabs(phi(2)) * 180.0 / M_PI);
                         }
                         if (fabs(phi(0))<0.008f && fabs(phi(1))<0.008f && fabs(phi(2))<0.349f)
                         {
@@ -1259,8 +1260,8 @@ void LoopClosing::CorrectLoop()
         mbStopGBA = false;
         mnCorrectionGBA = mnNumCorrection;
 
-        mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment, this, pLoopMap, mpCurrentKF->mnId);
         { unique_lock<mutex> l(mMutexLoopStats); mLoopStats.gbaStarted++; }
+        mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment, this, pLoopMap, mpCurrentKF->mnId);
     }
 
     // Loop closed. Release Local Mapping.
@@ -1824,8 +1825,8 @@ void LoopClosing::MergeLocal()
         mbRunningGBA = true;
         mbFinishedGBA = false;
         mbStopGBA = false;
-        mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment,this, pMergeMap, mpCurrentKF->mnId);
         { unique_lock<mutex> l(mMutexLoopStats); mLoopStats.gbaStarted++; }
+        mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment,this, pMergeMap, mpCurrentKF->mnId);
     }
 
     mpMergeMatchedKF->AddMergeEdge(mpCurrentKF);
@@ -2385,15 +2386,16 @@ void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoop
     // We need to propagate the correction through the spanning tree
     {
         unique_lock<mutex> lock(mMutexGBA);
+        const bool bImuInitDuringBA = !bImuInit && pActiveMap->isImuInitialized();
         {
             unique_lock<mutex> statsLock(mMutexLoopStats);
-            if (idx != mnFullBAIdx || mbStopGBA || (!bImuInit && pActiveMap->isImuInitialized())) mLoopStats.gbaAborted++;
+            if (idx != mnFullBAIdx || mbStopGBA || bImuInitDuringBA) mLoopStats.gbaAborted++;
             else mLoopStats.gbaFinished++;
         }
         if(idx!=mnFullBAIdx)
             return;
 
-        if(!bImuInit && pActiveMap->isImuInitialized())
+        if(bImuInitDuringBA)
             return;
 
         if(!mbStopGBA)
