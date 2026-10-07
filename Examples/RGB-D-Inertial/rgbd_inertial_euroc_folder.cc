@@ -37,6 +37,9 @@ using namespace std;
 
 namespace {
 
+// How long --lockstep waits for an idle back end after a frame before giving up.
+constexpr auto kLockstepDeadline = chrono::seconds(60);
+
 struct CsvFrame {
     int64_t t_ns;
     string file;  // absolute path
@@ -121,17 +124,18 @@ ORB_SLAM3::IMU::Point ToOrb(const ImuSample &m)
     return ORB_SLAM3::IMU::Point(m.ax, m.ay, m.az, m.wx, m.wy, m.wz, m.t_ns * 1e-9);
 }
 
-// Lockstep: blocks until LocalMapping and LoopClosing are idle. A back end still busy after 60 s is reported with
-// the conditions that keep it busy; the process then exits with status 2 (the SLAM threads cannot be joined).
+// Lockstep: blocks until LocalMapping and LoopClosing are idle. A back end still busy after kLockstepDeadline is
+// reported with the conditions that keep it busy; the process then exits with status 2 (the SLAM threads cannot be
+// joined).
 void WaitForIdleBackEnd(ORB_SLAM3::System &slam, ofstream &fTrack, int64_t t_ns)
 {
-    const auto deadline = chrono::steady_clock::now() + chrono::seconds(60);
+    const auto deadline = chrono::steady_clock::now() + kLockstepDeadline;
     while (!slam.BackEndIdle()) {
         if (chrono::steady_clock::now() > deadline) {
             int queued = 0;
             bool accept = false, loopIdle = false;
             slam.BackEndState(queued, accept, loopIdle);
-            cerr << "ERROR: --lockstep: back end still busy 60 s after frame " << t_ns << ":"
+            cerr << "ERROR: --lockstep: back end still busy " << kLockstepDeadline.count() << " s after frame " << t_ns << ":"
                  << (queued != 0 ? " KeyframesInQueue=" + to_string(queued) : "")
                  << (!accept ? " AcceptKeyFrames=false" : "") << (!loopIdle ? " LoopClosing::IsIdle=false" : "")
                  << (queued == 0 && accept && loopIdle ? " none (idle when re-read)" : "") << endl;

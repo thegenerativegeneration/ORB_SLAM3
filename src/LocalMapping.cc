@@ -1318,7 +1318,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
             // Inside the map-update lock and after the writes, so a reader holding the lock sees the move and the
             // new index together. The full inertial BA below moves the map again and bumps it again.
             mpAtlas->GetCurrentMap()->IncreaseChangeIndex();
-            mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex();
+            mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex(FrameMoveKind::ImuInit);
         }
 
         // Check if initialization OK
@@ -1457,7 +1457,7 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     bInitializing = false;
 
     mpCurrentKeyFrame->GetMap()->IncreaseChangeIndex();
-    mpCurrentKeyFrame->GetMap()->IncreaseFrameMoveIndex();
+    mpCurrentKeyFrame->GetMap()->IncreaseFrameMoveIndex(FrameMoveKind::ImuInitBA);
 
     return;
 }
@@ -1513,7 +1513,7 @@ void LocalMapping::ScaleRefinement()
         Sophus::SE3f Tgw(mRwg.cast<float>().transpose(),Eigen::Vector3f::Zero());
         mpAtlas->GetCurrentMap()->ApplyScaledRotation(Tgw,mScale,true);
         mpTracker->UpdateFrameIMU(mScale,mpCurrentKeyFrame->GetImuBias(),mpCurrentKeyFrame);
-        mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex();
+        mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex(FrameMoveKind::ScaleRefinement);
     }
     std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
 

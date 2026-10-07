@@ -1382,6 +1382,11 @@ MappingStats System::TakeMappingStats()
     return mpLocalMapper->TakeStats();
 }
 
+LoopStats System::TakeLoopStats()
+{
+    return mpLoopCloser->TakeStats();
+}
+
 int System::LocalMappingQueueLength()
 {
     return mpLocalMapper->KeyframesInQueue();
@@ -1390,7 +1395,7 @@ int System::LocalMappingQueueLength()
 bool System::BackEndIdle()
 {
     // LocalMapping clears AcceptKeyFrames before taking a keyframe and sets it after handing it to LoopClosing.
-    return mpLocalMapper->KeyframesInQueue() == 0 && mpLocalMapper->AcceptKeyFrames() && mpLoopCloser->IsIdle();
+    int q; bool accept, idle; BackEndState(q, accept, idle); return q == 0 && accept && idle;
 }
 
 void System::BackEndState(int &keyframesInQueue, bool &acceptKeyFrames, bool &loopClosingIdle)

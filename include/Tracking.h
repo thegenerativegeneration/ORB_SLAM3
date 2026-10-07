@@ -319,6 +319,11 @@ protected:
     //Current matches in frame
     int mnMatchesInliers;
 
+    // Replay levers (settings Tracking.MaxLocalKeyFrames, Tracking.InertialKeyFrameInterval): the most local
+    // keyframes a frame tracks against (0: no cap) and the longest gap in seconds between inertial keyframes.
+    int mnMaxLocalKeyFrames = 0;
+    double mInertialKeyFrameInterval = 0.5;
+
     //Last Frame, KeyFrame and Relocalisation Info
     KeyFrame* mpLastKeyFrame;
     unsigned int mnLastKeyFrameId;

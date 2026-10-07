@@ -232,6 +232,8 @@ void Map::clear()
     mbIMU_BA1 = false;
     mbIMU_BA2 = false;
     mbInertialSettled = false;
+    mTgauge = Sophus::SE3f();
+    mnLastFrameMoveKind = -1;
 }
 
 bool Map::IsInUse()
@@ -280,6 +282,8 @@ void Map::ApplyScaledRotation(const Sophus::SE3f &T, const float s, const bool b
         pMP->SetWorldPos(s * Ryw * pMP->GetWorldPos() + tyw);
         pMP->UpdateNormalAndDepth();
     }
+    mTgauge = T * mTgauge;
+    if (fabs(s - 1.f) > 1e-5f) mnScaledMoves++;
     mnMapChange++;
 }
 
@@ -363,10 +367,25 @@ int Map::GetFrameMoveIndex()
     return mnFrameMoveIdx;
 }
 
-void Map::IncreaseFrameMoveIndex()
+void Map::IncreaseFrameMoveIndex(FrameMoveKind kind)
 {
     unique_lock<mutex> lock(mMutexMap);
     mnFrameMoveIdx++;
+    if (kind != FrameMoveKind::ImuInit && kind != FrameMoveKind::ScaleRefinement && kind != FrameMoveKind::MergeRigid)
+        mnNonRigidMoveIdx++;
+    mnLastFrameMoveKind = static_cast<int>(kind);
+}
+
+FrameMoveState Map::GetFrameMoveState()
+{
+    unique_lock<mutex> lock(mMutexMap);
+    FrameMoveState s;
+    s.index = mnFrameMoveIdx;
+    s.nonRigidIndex = mnNonRigidMoveIdx;
+    s.lastKind = mnLastFrameMoveKind;
+    s.scaledMoves = mnScaledMoves;
+    s.gauge = mTgauge;
+    return s;
 }
 
 int Map::GetLastMapChange()

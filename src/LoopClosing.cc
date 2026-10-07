@@ -97,7 +97,8 @@ void LoopClosing::Run()
     // Loop detection and correction may lag behind tracking: utility QoS lets the scheduler favour the tracking and
     // mapping threads and move this one to efficiency cores.
     pthread_setname_np("orb.loopclosing");
-    pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
+    // A refused QoS change leaves the thread at its inherited class; nothing depends on it.
+    (void)pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
 #endif
     mbFinished =false;
 
@@ -188,6 +189,10 @@ void LoopClosing::Run()
 
                         nMerges += 1;
 #endif
+                        {
+                            unique_lock<mutex> lock(mMutexLoopStats);
+                            mLoopStats.merges++;
+                        }
                         // TODO UNCOMMENT
                         if (mpTracker->mSensor==System::IMU_MONOCULAR ||mpTracker->mSensor==System::IMU_STEREO || mpTracker->mSensor==System::IMU_RGBD)
                             MergeLocal2();
@@ -239,6 +244,10 @@ void LoopClosing::Run()
                     vnPR_TypeRecogn.push_back(0);
 
                     Verbose::PrintMess("*Loop detected", Verbose::VERBOSITY_QUIET);
+                    {
+                        unique_lock<mutex> lock(mMutexLoopStats);
+                        mLoopStats.loopsDetected++;
+                    }
 
                     mg2oLoopScw = mg2oLoopSlw; //*mvg2oSim3LoopTcw[nCurrentIndex];
                     if(mpCurrentKF->GetMap()->IsInertial())
@@ -249,6 +258,11 @@ void LoopClosing::Run()
 
                         Eigen::Vector3d phi = LogSO3(g2oSww_new.rotation().toRotationMatrix());
                         cout << "phi = " << phi.transpose() << endl; 
+                        {
+                            unique_lock<mutex> lock(mMutexLoopStats);
+                            mLoopStats.maxCorrectionM = max(mLoopStats.maxCorrectionM, g2oSww_new.translation().norm());
+                            mLoopStats.maxCorrectionYawDeg = max(mLoopStats.maxCorrectionYawDeg, fabs(phi(2)) * 180.0 / M_PI);
+                        }
                         if (fabs(phi(0))<0.008f && fabs(phi(1))<0.008f && fabs(phi(2))<0.349f)
                         {
                             if(mpCurrentKF->GetMap()->IsInertial())
@@ -269,6 +283,10 @@ void LoopClosing::Run()
                         {
                             cout << "BAD LOOP!!!" << endl;
                             bGoodLoop = false;
+                            {
+                                unique_lock<mutex> lock(mMutexLoopStats);
+                                mLoopStats.loopsRejected++;
+                            }
                         }
 
                     }
@@ -283,7 +301,13 @@ void LoopClosing::Run()
                         nLoop += 1;
 
 #endif
+                        const double t0 = WallMs();
                         CorrectLoop();
+                        {
+                            unique_lock<mutex> lock(mMutexLoopStats);
+                            mLoopStats.loopsCorrected++;
+                            mLoopStats.correctLoopMaxMs = max(mLoopStats.correctLoopMaxMs, WallMs() - t0);
+                        }
 #ifdef REGISTER_TIMES
                         std::chrono::steady_clock::time_point time_EndLoop = std::chrono::steady_clock::now();
 
@@ -994,6 +1018,10 @@ int LoopClosing::FindMatchesByProjection(KeyFrame* pCurrentKF, KeyFrame* pMatche
 void LoopClosing::CorrectLoop()
 {
     //cout << "Loop detected!" << endl;
+    if (KeyFrame *last = mpTracker->GetLastKeyFrame()) {
+        unique_lock<mutex> lock(mMutexLoopStats);
+        mLoopStats.maxLagKeyFrames = max(mLoopStats.maxLagKeyFrames, (int)(last->mnId - mpCurrentKF->mnId));
+    }
 
     // Send a stop signal to Local Mapping
     // Avoid new keyframes are inserted while correcting the loop
@@ -1138,7 +1166,7 @@ void LoopClosing::CorrectLoop()
         }
         // TODO Check this index increasement
         mpAtlas->GetCurrentMap()->IncreaseChangeIndex();
-        mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex();
+        mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex(FrameMoveKind::LoopCorrection);
 
 
         // Start Loop Fusion
@@ -1232,6 +1260,7 @@ void LoopClosing::CorrectLoop()
         mnCorrectionGBA = mnNumCorrection;
 
         mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment, this, pLoopMap, mpCurrentKF->mnId);
+        { unique_lock<mutex> l(mMutexLoopStats); mLoopStats.gbaStarted++; }
     }
 
     // Loop closed. Release Local Mapping.
@@ -1578,7 +1607,7 @@ void LoopClosing::MergeLocal()
         mpAtlas->ChangeMap(pMergeMap);
         mpAtlas->SetMapBad(pCurrentMap);
         pMergeMap->IncreaseChangeIndex();
-        pMergeMap->IncreaseFrameMoveIndex();
+        pMergeMap->IncreaseFrameMoveIndex(FrameMoveKind::MergeChangeMap);
         //TODO for debug
         pMergeMap->ChangeId(pCurrentMap->GetId());
 
@@ -1796,6 +1825,7 @@ void LoopClosing::MergeLocal()
         mbFinishedGBA = false;
         mbStopGBA = false;
         mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment,this, pMergeMap, mpCurrentKF->mnId);
+        { unique_lock<mutex> l(mMutexLoopStats); mLoopStats.gbaStarted++; }
     }
 
     mpMergeMatchedKF->AddMergeEdge(mpCurrentKF);
@@ -1806,7 +1836,7 @@ void LoopClosing::MergeLocal()
     {
         // The welding BA and the essential graph above wrote the merged map's poses under this lock.
         unique_lock<mutex> lock(pMergeMap->mMutexMapUpdate);
-        pMergeMap->IncreaseFrameMoveIndex();
+        pMergeMap->IncreaseFrameMoveIndex(FrameMoveKind::MergeWelding);
     }
 
     mpAtlas->RemoveBadMaps();
@@ -1885,7 +1915,7 @@ void LoopClosing::MergeLocal2()
         // The active map moved in place (same Map object): announce it inside the lock, after the writes.
         // MergeInertialBA below bumps the index again after its own pose writes.
         mpAtlas->GetCurrentMap()->IncreaseChangeIndex();
-        mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex();
+        mpAtlas->GetCurrentMap()->IncreaseFrameMoveIndex(FrameMoveKind::MergeRigid);
 
         std::chrono::steady_clock::time_point t3 = std::chrono::steady_clock::now();
     }
@@ -2311,10 +2341,10 @@ void LoopClosing::ResetIfRequested()
 void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoopKF)
 {  
 #ifdef __APPLE__
-    // Loop detection and correction may lag behind tracking: utility QoS lets the scheduler favour the tracking and
-    // mapping threads and move this one to efficiency cores.
+    // Global BA runs for seconds on the whole map: utility QoS lets the scheduler favour tracking and local mapping
+    // and move it to efficiency cores.
     pthread_setname_np("orb.globalba");
-    pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
+    (void)pthread_set_qos_class_self_np(QOS_CLASS_UTILITY, 0);
 #endif
     Verbose::PrintMess("Starting Global Bundle Adjustment", Verbose::VERBOSITY_NORMAL);
 
@@ -2355,6 +2385,11 @@ void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoop
     // We need to propagate the correction through the spanning tree
     {
         unique_lock<mutex> lock(mMutexGBA);
+        {
+            unique_lock<mutex> statsLock(mMutexLoopStats);
+            if (idx != mnFullBAIdx || mbStopGBA || (!bImuInit && pActiveMap->isImuInitialized())) mLoopStats.gbaAborted++;
+            else mLoopStats.gbaFinished++;
+        }
         if(idx!=mnFullBAIdx)
             return;
 
@@ -2536,7 +2571,7 @@ void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoop
 
             pActiveMap->InformNewBigChange();
             pActiveMap->IncreaseChangeIndex();
-            pActiveMap->IncreaseFrameMoveIndex();
+            pActiveMap->IncreaseFrameMoveIndex(FrameMoveKind::GlobalBA);
 
             // TODO Check this update
             // mpTracker->UpdateFrameIMU(1.0f, mpTracker->GetLastKeyFrame()->GetImuBias(), mpTracker->GetLastKeyFrame());
@@ -2583,6 +2618,14 @@ bool LoopClosing::isFinished()
 {
     unique_lock<mutex> lock(mMutexFinish);
     return mbFinished;
+}
+
+LoopStats LoopClosing::TakeStats()
+{
+    unique_lock<mutex> lock(mMutexLoopStats);
+    const LoopStats s = mLoopStats;
+    mLoopStats = LoopStats();
+    return s;
 }
 
 

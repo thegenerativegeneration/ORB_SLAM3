@@ -34,6 +34,7 @@ struct TrackTiming
     double keyFrameMs = 0;  ///< NeedNewKeyFrame and CreateNewKeyFrame
     int localKeyFrames = 0; ///< local keyframes after this frame
     int localMapPoints = 0; ///< local map points after this frame
+    int inliers = -1;       ///< mnMatchesInliers after TrackLocalMap; -1 when it did not run
 };
 
 /// LocalMapping's work since the last LocalMapping::TakeStats.
@@ -46,6 +47,20 @@ struct MappingStats
     int abortedBA = 0;    ///< local bundle adjustments with an abort request pending when they returned: a newer
                           ///< keyframe (also one queued just after the BA finished), Tracking's InterruptBA, or a
                           ///< stop request from LoopClosing or a reset
+};
+
+/// LoopClosing's events since the last LoopClosing::TakeStats.
+struct LoopStats
+{
+    int loopsDetected = 0;          ///< place recognition found a loop in the active map
+    int loopsRejected = 0;          ///< inertial loops dropped as "BAD LOOP" (roll/pitch or yaw of the correction too large)
+    int loopsCorrected = 0;         ///< CorrectLoop runs
+    int merges = 0;                 ///< MergeLocal or MergeLocal2 runs
+    int gbaStarted = 0, gbaFinished = 0, gbaAborted = 0;
+    double maxCorrectionM = 0;      ///< largest translation of a detected inertial loop's world correction
+    double maxCorrectionYawDeg = 0; ///< largest |yaw| of it
+    double correctLoopMaxMs = 0;    ///< longest CorrectLoop wall time
+    int maxLagKeyFrames = 0;        ///< largest id gap between the tracker's last keyframe and the loop keyframe at CorrectLoop
 };
 
 } // namespace ORB_SLAM3

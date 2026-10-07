@@ -128,6 +128,14 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     vdNewKF_ms.clear();
     vdTrackTotal_ms.clear();
 #endif
+
+    // Optional replay levers; absent keys keep upstream behaviour (no cap, a keyframe at least every 0.5 s).
+    cv::FileStorage levers(strSettingPath, cv::FileStorage::READ);
+    if (levers.isOpened()) {
+        if (!levers["Tracking.MaxLocalKeyFrames"].empty()) mnMaxLocalKeyFrames = (int)levers["Tracking.MaxLocalKeyFrames"];
+        if (!levers["Tracking.InertialKeyFrameInterval"].empty())
+            mInertialKeyFrameInterval = (double)levers["Tracking.InertialKeyFrameInterval"];
+    }
 }
 
 #ifdef REGISTER_TIMES
@@ -3047,6 +3055,7 @@ bool Tracking::TrackLocalMap()
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
     mpLocalMapper->mnMatchesInliers=mnMatchesInliers;
+    mTiming.inliers = mnMatchesInliers;
     if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<50)
         return false;
 
@@ -3188,12 +3197,12 @@ bool Tracking::NeedNewKeyFrame()
     {
         if (mSensor==System::IMU_MONOCULAR)
         {
-            if ((mCurrentFrame.mTimeStamp-mpLastKeyFrame->mTimeStamp)>=0.5)
+            if ((mCurrentFrame.mTimeStamp-mpLastKeyFrame->mTimeStamp)>=mInertialKeyFrameInterval)
                 c3 = true;
         }
         else if (mSensor==System::IMU_STEREO || mSensor == System::IMU_RGBD)
         {
-            if ((mCurrentFrame.mTimeStamp-mpLastKeyFrame->mTimeStamp)>=0.5)
+            if ((mCurrentFrame.mTimeStamp-mpLastKeyFrame->mTimeStamp)>=mInertialKeyFrameInterval)
                 c3 = true;
         }
     }
@@ -3621,6 +3630,20 @@ void Tracking::UpdateLocalKeyFrames()
                 tempKeyFrame=tempKeyFrame->mPrevKF;
             }
         }
+    }
+
+    // Optional cap: keep the keyframes sharing the most points with the frame (pKFmax stays first); keyframes added
+    // above without a shared point rank last in the order they were added.
+    if (mnMaxLocalKeyFrames > 0 && (int)mvpLocalKeyFrames.size() > mnMaxLocalKeyFrames) {
+        const auto shared = [&](KeyFrame *pKF) {
+            const auto it = keyframeCounter.find(pKF);
+            return it == keyframeCounter.end() ? 0 : it->second;
+        };
+        std::stable_sort(mvpLocalKeyFrames.begin(), mvpLocalKeyFrames.end(),
+                         [&](KeyFrame *a, KeyFrame *b) { return shared(a) > shared(b); });
+        for (size_t i = mnMaxLocalKeyFrames; i < mvpLocalKeyFrames.size(); i++)
+            mvpLocalKeyFrames[i]->mnTrackReferenceForFrame = 0;
+        mvpLocalKeyFrames.resize(mnMaxLocalKeyFrames);
     }
 
     if(pKFmax)

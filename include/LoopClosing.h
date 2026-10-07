@@ -27,6 +27,7 @@
 #include "Tracking.h"
 
 #include "KeyFrameDatabase.h"
+#include "TrackStats.h"
 
 #ifndef ORBSLAM3_NO_SERIALIZATION // unused; guarded so the minimal build needs no Boost at all
 #include <boost/algorithm/string.hpp>
@@ -86,6 +87,9 @@ public:
     void RequestFinish();
 
     bool isFinished();
+
+    // The loop, merge and global-BA events since the last call (any thread); resets them.
+    LoopStats TakeStats();
 
     Viewer* mpViewer;
 
@@ -225,6 +229,9 @@ protected:
     bool mbStopGBA;
     std::mutex mMutexGBA;
     std::thread* mpThreadGBA;
+
+    std::mutex mMutexLoopStats;
+    LoopStats mLoopStats;
 
     // Fix scale in the stereo/RGB-D case
     bool mbFixScale;

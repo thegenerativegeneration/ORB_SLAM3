@@ -48,6 +48,26 @@ class KeyFrame;
 class Atlas;
 class KeyFrameDatabase;
 
+/// The code path that moved a map's frame. Rigid kinds apply one transform to the whole map
+/// (Map::ApplyScaledRotation); the others move keyframes by different amounts.
+enum class FrameMoveKind : int
+{
+    ImuInit = 0, ImuInitBA = 1, ScaleRefinement = 2, LoopCorrection = 3, LoopEssentialGraph = 4,
+    MergeRigid = 5, MergeWelding = 6, MergeChangeMap = 7, GlobalBA = 8
+};
+
+/// The frame-move counters of a map read together: every move, the non-rigid ones, the latest kind (-1 before the
+/// first), rigid moves whose scale was not 1 (the gauge ignores scale), and the product of every rigid transform
+/// applied since the map was created or cleared (a point moved by them all is gauge · x).
+struct FrameMoveState
+{
+    int index = 0;
+    int nonRigidIndex = 0;
+    int lastKind = -1;
+    int scaledMoves = 0;
+    Sophus::SE3f gauge;
+};
+
 class Map
 {
     friend class boost::serialization::access;
@@ -119,11 +139,11 @@ public:
 
     int GetMapChangeIndex();
     void IncreaseChangeIndex();
-    // Counts moves of the map's frame (gauge): IMU initialisation, loop correction, merges and global BA, which move
-    // all poses of the map together. Local BA, which bumps the change index, refines local poses without moving the
-    // frame and leaves this index alone. Bumped inside mMutexMapUpdate after the pose writes.
+    // Counts moves of the map's frame (IMU initialisation, loop correction, merges, global BA); local BA does not
+    // move it. Bumped inside mMutexMapUpdate after the pose writes, with the kind of move (FrameMoveKind).
     int GetFrameMoveIndex();
-    void IncreaseFrameMoveIndex();
+    FrameMoveState GetFrameMoveState();
+    void IncreaseFrameMoveIndex(FrameMoveKind kind);
     int GetLastMapChange();
     void SetLastMapChange(int currentChangeId);
 
@@ -198,6 +218,10 @@ protected:
     int mnMapChange;
     int mnMapChangeNotified;
     int mnFrameMoveIdx = 0;
+    int mnNonRigidMoveIdx = 0;
+    int mnLastFrameMoveKind = -1;
+    int mnScaledMoves = 0;
+    Sophus::SE3f mTgauge;
 
     long unsigned int mnInitKFid;
     long unsigned int mnMaxKFid;

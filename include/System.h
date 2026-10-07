@@ -185,6 +185,8 @@ public:
     TrackTiming GetLastTrackTiming();
     // LocalMapping's work since the previous call (which resets it), and its keyframe queue now. Any thread.
     MappingStats TakeMappingStats();
+    // LoopClosing's loop, merge and global-BA events since the previous call (which resets them). Any thread.
+    LoopStats TakeLoopStats();
     int LocalMappingQueueLength();
     // LocalMapping has no keyframe queued or in work and LoopClosing is idle (offline replays in lockstep).
     bool BackEndIdle();
