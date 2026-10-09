@@ -2277,6 +2277,7 @@ void LoopClosing::RequestReset()
         unique_lock<mutex> lock(mMutexReset);
         mbResetRequested = true;
     }
+    SetTrackPhase(TrackPhase::WaitLoopClosing);
 
     while(1)
     {
@@ -2296,6 +2297,7 @@ void LoopClosing::RequestResetActiveMap(Map *pMap)
         mbResetActiveMapRequested = true;
         mpMapToReset = pMap;
     }
+    SetTrackPhase(TrackPhase::WaitLoopClosing);
 
     while(1)
     {
@@ -2620,6 +2622,17 @@ bool LoopClosing::isFinished()
 {
     unique_lock<mutex> lock(mMutexFinish);
     return mbFinished;
+}
+
+LoopClosingWatch LoopClosing::Watch() const
+{
+    LoopClosingWatch w;
+    w.resetRequested = mbResetRequested.load(std::memory_order_relaxed);
+    w.resetActiveMapRequested = mbResetActiveMapRequested.load(std::memory_order_relaxed);
+    w.finished = mbFinished.load(std::memory_order_relaxed);
+    w.processingKeyFrame = mbProcessingKeyFrame.load(std::memory_order_relaxed);
+    w.runningGBA = mbRunningGBA.load(std::memory_order_relaxed);
+    return w;
 }
 
 LoopStats LoopClosing::TakeStats()

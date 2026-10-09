@@ -28,6 +28,7 @@
 
 #include "KeyFrameDatabase.h"
 #include "TrackStats.h"
+#include "TrackWatch.h"
 
 #ifndef ORBSLAM3_NO_SERIALIZATION // unused; guarded so the minimal build needs no Boost at all
 #include <boost/algorithm/string.hpp>
@@ -90,6 +91,9 @@ public:
 
     // The loop, merge and global-BA events since the last call (any thread); resets them.
     LoopStats TakeStats();
+
+    // The flags that decide whether a reset request is answered, read without locks. Any thread.
+    LoopClosingWatch Watch() const;
 
     Viewer* mpViewer;
 
@@ -154,15 +158,16 @@ protected:
     void CheckObservations(set<KeyFrame*> &spKFsMap1, set<KeyFrame*> &spKFsMap2);
 
     void ResetIfRequested();
-    bool mbResetRequested;
-    bool mbResetActiveMapRequested;
+    // Atomic so Watch can read them without a lock; the mutexes around them stay. Same for mbRunningGBA.
+    std::atomic<bool> mbResetRequested;
+    std::atomic<bool> mbResetActiveMapRequested;
     Map* mpMapToReset;
     std::mutex mMutexReset;
 
     bool CheckFinish();
     void SetFinish();
     bool mbFinishRequested;
-    bool mbFinished;
+    std::atomic<bool> mbFinished;
     std::mutex mMutexFinish;
 
     Atlas* mpAtlas;
@@ -224,7 +229,7 @@ protected:
     long unsigned int mLastLoopKFid;
 
     // Variables related to Global Bundle Adjustment
-    bool mbRunningGBA;
+    std::atomic<bool> mbRunningGBA;
     bool mbFinishedGBA;
     bool mbStopGBA;
     std::mutex mMutexGBA;

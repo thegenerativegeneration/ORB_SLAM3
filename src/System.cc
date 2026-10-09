@@ -351,6 +351,10 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
         cerr << "ERROR: you called TrackRGBD but input sensor was not set to RGBD." << endl;
         exit(-1);
     }
+    struct IdleOnReturn
+    {
+        ~IdleOnReturn() { SetTrackPhase(TrackPhase::Idle); }
+    } idleOnReturn;
 
     cv::Mat imToFeed = im.clone();
     cv::Mat imDepthToFeed = depthmap.clone();
@@ -387,6 +391,7 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
     }
 
     // Check reset
+    SetTrackPhase(TrackPhase::ResetCheck);
     {
         unique_lock<mutex> lock(mMutexReset);
         if(mbReset)
@@ -401,6 +406,7 @@ Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const
             mbResetActiveMap = false;
         }
     }
+    SetTrackPhase(TrackPhase::Frame);
 
     if (mSensor == System::IMU_RGBD)
         for(size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
@@ -1395,6 +1401,15 @@ LoopStats System::TakeLoopStats()
 int System::LocalMappingQueueLength()
 {
     return mpLocalMapper->KeyframesInQueue();
+}
+
+TrackWatch System::GetTrackWatch()
+{
+    TrackWatch w;
+    w.phase = GetTrackPhase();
+    w.localMapping = mpLocalMapper->Watch();
+    w.loopClosing = mpLoopCloser->Watch();
+    return w;
 }
 
 bool System::BackEndIdle()

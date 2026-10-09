@@ -1904,7 +1904,9 @@ void Tracking::Track()
 
     // Get Map Mutex -> Map cannot be changed
     const double lockStart = WallMs();
+    SetTrackPhase(TrackPhase::MapLock);
     unique_lock<mutex> lock(pCurrentMap->mMutexMapUpdate);
+    SetTrackPhase(TrackPhase::Tracking);
     mTiming.lockWaitMs = WallMs() - lockStart;
     // Destroyed before `lock` on every return below: records the state the frame's pose belongs to.
     struct RecordFrameMoves
@@ -1929,7 +1931,9 @@ void Tracking::Track()
     {
         if(mSensor==System::STEREO || mSensor==System::RGBD || mSensor==System::IMU_STEREO || mSensor==System::IMU_RGBD)
         {
+            SetTrackPhase(TrackPhase::Initialization);
             StereoInitialization();
+            SetTrackPhase(TrackPhase::Tracking);
         }
         else
         {
@@ -3834,6 +3838,7 @@ bool Tracking::Relocalization()
 
 void Tracking::Reset(bool bLocMap)
 {
+    SetTrackPhase(TrackPhase::Reset);
     Verbose::PrintMess("System Reseting", Verbose::VERBOSITY_NORMAL);
 
     if(mpViewer)
@@ -3848,6 +3853,7 @@ void Tracking::Reset(bool bLocMap)
     {
         Verbose::PrintMess("Reseting Local Mapper...", Verbose::VERBOSITY_NORMAL);
         mpLocalMapper->RequestReset();
+        SetTrackPhase(TrackPhase::Reset);
         Verbose::PrintMess("done", Verbose::VERBOSITY_NORMAL);
     }
 
@@ -3855,6 +3861,7 @@ void Tracking::Reset(bool bLocMap)
     // Reset Loop Closing
     Verbose::PrintMess("Reseting Loop Closing...", Verbose::VERBOSITY_NORMAL);
     mpLoopClosing->RequestReset();
+    SetTrackPhase(TrackPhase::Reset);
     Verbose::PrintMess("done", Verbose::VERBOSITY_NORMAL);
 
     // Clear BoW Database
@@ -3900,6 +3907,7 @@ void Tracking::Reset(bool bLocMap)
 
 void Tracking::ResetActiveMap(bool bLocMap)
 {
+    SetTrackPhase(TrackPhase::ResetActiveMap);
     Verbose::PrintMess("Active map Reseting", Verbose::VERBOSITY_NORMAL);
     if(mpViewer)
     {
@@ -3914,12 +3922,14 @@ void Tracking::ResetActiveMap(bool bLocMap)
     {
         Verbose::PrintMess("Reseting Local Mapper...", Verbose::VERBOSITY_VERY_VERBOSE);
         mpLocalMapper->RequestResetActiveMap(pMap);
+        SetTrackPhase(TrackPhase::ResetActiveMap);
         Verbose::PrintMess("done", Verbose::VERBOSITY_VERY_VERBOSE);
     }
 
     // Reset Loop Closing
     Verbose::PrintMess("Reseting Loop Closing...", Verbose::VERBOSITY_NORMAL);
     mpLoopClosing->RequestResetActiveMap(pMap);
+    SetTrackPhase(TrackPhase::ResetActiveMap);
     Verbose::PrintMess("done", Verbose::VERBOSITY_NORMAL);
 
     // Clear BoW Database

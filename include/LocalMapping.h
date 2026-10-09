@@ -27,7 +27,9 @@
 #include "KeyFrameDatabase.h"
 #include "Settings.h"
 #include "TrackStats.h"
+#include "TrackWatch.h"
 
+#include <atomic>
 #include <mutex>
 
 
@@ -79,6 +81,9 @@ public:
 
     // Work since the previous call (keyframes processed, wall and CPU time, local BAs cut short); resets it. Any thread.
     MappingStats TakeStats();
+
+    // The flags that decide whether a reset request is answered, read without locks. Any thread.
+    LocalMappingWatch Watch() const;
 
     bool IsInitializing();
     double GetCurrKFTime();
@@ -149,15 +154,16 @@ protected:
     bool mbInertial;
 
     void ResetIfRequested();
-    bool mbResetRequested;
-    bool mbResetRequestedActiveMap;
+    // Atomic so Watch can read them without a lock; the mutexes around them stay. Same for the flags below.
+    std::atomic<bool> mbResetRequested;
+    std::atomic<bool> mbResetRequestedActiveMap;
     Map* mpMapToReset;
     std::mutex mMutexReset;
 
     bool CheckFinish();
     void SetFinish();
     bool mbFinishRequested;
-    bool mbFinished;
+    std::atomic<bool> mbFinished;
     std::mutex mMutexFinish;
 
     Atlas* mpAtlas;
@@ -178,10 +184,12 @@ protected:
 
     bool mbAbortBA;
 
-    bool mbStopped;
-    bool mbStopRequested;
+    std::atomic<bool> mbStopped;
+    std::atomic<bool> mbStopRequested;
     bool mbNotStop;
     std::mutex mMutexStop;
+    // Run is between taking a keyframe and handing it to LoopClosing (relaxed stores, for Watch).
+    std::atomic<bool> mbProcessingKeyFrame{false};
 
     bool mbAcceptKeyFrames;
     std::mutex mMutexAccept;

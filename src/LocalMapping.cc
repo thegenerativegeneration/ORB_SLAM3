@@ -78,6 +78,7 @@ void LocalMapping::Run()
         // Check if there are keyframes in the queue
         if(CheckNewKeyFrames() && !mbBadImu)
         {
+            mbProcessingKeyFrame.store(true, std::memory_order_relaxed);
             const double statsWall0 = WallMs(), statsCpu0 = ThreadCpuMs();
 #ifdef REGISTER_TIMES
             double timeLBA_ms = 0;
@@ -275,6 +276,7 @@ void LocalMapping::Run()
             double timeLocalMap = std::chrono::duration_cast<std::chrono::duration<double,std::milli> >(time_EndLocalMap - time_StartProcessKF).count();
             vdLMTotal_ms.push_back(timeLocalMap);
 #endif
+            mbProcessingKeyFrame.store(false, std::memory_order_relaxed);
         }
         else if(Stop() && !mbBadImu)
         {
@@ -1094,6 +1096,7 @@ void LocalMapping::RequestReset()
         mbResetRequested = true;
     }
     cout << "LM: Map reset, waiting..." << endl;
+    SetTrackPhase(TrackPhase::WaitLocalMapping);
 
     while(1)
     {
@@ -1116,6 +1119,7 @@ void LocalMapping::RequestResetActiveMap(Map* pMap)
         mpMapToReset = pMap;
     }
     cout << "LM: Active map reset, waiting..." << endl;
+    SetTrackPhase(TrackPhase::WaitLocalMapping);
 
     while(1)
     {
@@ -1201,6 +1205,18 @@ bool LocalMapping::isFinished()
 {
     unique_lock<mutex> lock(mMutexFinish);
     return mbFinished;
+}
+
+LocalMappingWatch LocalMapping::Watch() const
+{
+    LocalMappingWatch w;
+    w.stopped = mbStopped.load(std::memory_order_relaxed);
+    w.stopRequested = mbStopRequested.load(std::memory_order_relaxed);
+    w.resetRequested = mbResetRequested.load(std::memory_order_relaxed);
+    w.resetActiveMapRequested = mbResetRequestedActiveMap.load(std::memory_order_relaxed);
+    w.finished = mbFinished.load(std::memory_order_relaxed);
+    w.processingKeyFrame = mbProcessingKeyFrame.load(std::memory_order_relaxed);
+    return w;
 }
 
 void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)

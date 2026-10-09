@@ -40,6 +40,7 @@
 #include "ImuTypes.h"
 #include "Settings.h"
 #include "TrackStats.h"
+#include "TrackWatch.h"
 
 
 namespace ORB_SLAM3
@@ -194,6 +195,8 @@ public:
     bool BackEndIdle();
     // The three conditions BackEndIdle combines, each read once (diagnostics for a back end that stays busy).
     void BackEndState(int &keyframesInQueue, bool &acceptKeyFrames, bool &loopClosingIdle);
+    // Where TrackRGBD is and the back-end flags its reset waits depend on, read without locks. Any thread.
+    TrackWatch GetTrackWatch();
 
     // For debugging
     double GetTimeFromIMUInit();
