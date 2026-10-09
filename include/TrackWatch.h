@@ -8,7 +8,8 @@ namespace ORB_SLAM3
 
 /// Where the tracking thread is inside System::TrackRGBD, for a watchdog on another thread that must not take
 /// ORB-SLAM3's locks. Process-wide (one System per process). The tracking thread writes it with relaxed stores; any
-/// thread may read it.
+/// thread may read it. Maintained only within TrackRGBD: other entry points (TrackStereo, TrackMonocular,
+/// ChangeDataset) pass some of the markers below but never set Idle or Finish, so they may leave it stale.
 enum class TrackPhase : int
 {
     Idle = 0,             ///< not in TrackRGBD, or returned
@@ -21,6 +22,8 @@ enum class TrackPhase : int
     MapLock = 7,          ///< Tracking::Track: waiting for the active map's mMutexMapUpdate
     Initialization = 8,   ///< StereoInitialization
     Tracking = 9,         ///< Tracking::Track under the map lock, outside initialisation
+    Finish = 10,          ///< Track returned (map lock released): GrabImageRGBD's bookkeeping, then System copying the
+                          ///< frame's state under mMutexState
 };
 
 inline std::atomic<int> gTrackPhase{0};

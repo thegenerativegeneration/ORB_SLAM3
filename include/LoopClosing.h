@@ -158,7 +158,8 @@ protected:
     void CheckObservations(set<KeyFrame*> &spKFsMap1, set<KeyFrame*> &spKFsMap2);
 
     void ResetIfRequested();
-    // Atomic so Watch can read them without a lock; the mutexes around them stay. Same for mbRunningGBA.
+    // The reset flags are written under mMutexReset, mbFinished under mMutexFinish (and once as Run starts); they and
+    // mbRunningGBA below are atomic so Watch can read them without a lock.
     std::atomic<bool> mbResetRequested;
     std::atomic<bool> mbResetActiveMapRequested;
     Map* mpMapToReset;

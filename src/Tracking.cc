@@ -1571,6 +1571,7 @@ Sophus::SE3f Tracking::GrabImageRGBD(const cv::Mat &imRGB,const cv::Mat &imD, co
 #endif
 
     Track();
+    SetTrackPhase(TrackPhase::Finish);
 
     mTiming.localKeyFrames = (int)mvpLocalKeyFrames.size();
     mTiming.localMapPoints = (int)mvpLocalMapPoints.size();

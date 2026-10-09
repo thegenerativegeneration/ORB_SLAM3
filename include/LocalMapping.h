@@ -154,7 +154,8 @@ protected:
     bool mbInertial;
 
     void ResetIfRequested();
-    // Atomic so Watch can read them without a lock; the mutexes around them stay. Same for the flags below.
+    // The reset flags are written under mMutexReset, mbFinished under mMutexFinish (and once as Run starts), the stop
+    // flags below under mMutexStop; all are atomic so Watch can read them without a lock.
     std::atomic<bool> mbResetRequested;
     std::atomic<bool> mbResetRequestedActiveMap;
     Map* mpMapToReset;
