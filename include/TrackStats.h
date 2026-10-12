@@ -21,6 +21,13 @@ inline double ThreadCpuMs()
     return ts.tv_sec * 1e3 + ts.tv_nsec * 1e-6;
 }
 
+/// Which pose optimisation TrackLocalMap ran for a frame.
+enum PoseOptimisationKind : int { kPoseNone = 0,          ///< TrackLocalMap did not run
+                                  kPoseVisual = 1,        ///< PoseOptimization (reprojection only)
+                                  kPoseInertialFrame = 2, ///< inertial, prior from the last frame
+                                  kPoseInertialKeyFrame = 3, ///< inertial, prior from the last keyframe (map updated)
+                                  kPoseFallback = 4 };    ///< inertial from the last keyframe: last frame had no IMU constraint
+
 /// Cost of the last Tracking::GrabImageRGBD, recorded for every frame (a dozen clock reads, no allocation).
 struct TrackTiming
 {
@@ -34,6 +41,7 @@ struct TrackTiming
     double keyFrameMs = 0;  ///< NeedNewKeyFrame and CreateNewKeyFrame
     int localKeyFrames = 0; ///< local keyframes after this frame
     int localMapPoints = 0; ///< local map points after this frame
+    int poseOptimisation = kPoseNone; ///< which TrackLocalMap pose optimisation ran (PoseOptimisationKind)
     int inliers = -1;       ///< mnMatchesInliers after TrackLocalMap; -1 when it did not run
 };
 

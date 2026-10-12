@@ -46,7 +46,8 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     mbOnlyTracking(false), mbMapUpdated(false), mbVO(false), mpORBVocabulary(pVoc), mpKeyFrameDB(pKFDB),
     mbReadyToInitializate(false), mpSystem(pSys), mpViewer(NULL), bStepByStep(false),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpAtlas(pAtlas), mnLastRelocFrameId(0), time_recently_lost(5.0),
-    mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL))
+    mnInitialFrameId(0), mbCreatedMap(false), mnFirstFrameId(0), mpCamera2(nullptr), mpLastKeyFrame(static_cast<KeyFrame*>(NULL)),
+    mnFramesToResetIMU(0)
 {
     // Load camera parameters from settings file
     if(settings){
@@ -592,6 +593,9 @@ void Tracking::newParameterLoader(Settings *settings) {
 
     mMinFrames = 0;
     mMaxFrames = settings->fps();
+    // The legacy loader sets this in the constructor; settings files with File.version 1.0 come through here.
+    if(mSensor==System::IMU_MONOCULAR || mSensor==System::IMU_STEREO || mSensor==System::IMU_RGBD)
+        mnFramesToResetIMU = mMaxFrames;
     mbRGB = settings->rgb();
 
     //ORB parameters
@@ -3010,26 +3014,39 @@ bool Tracking::TrackLocalMap()
 
     int inliers;
     if (!mpAtlas->isImuInitialized())
+    {
         Optimizer::PoseOptimization(&mCurrentFrame);
+        mTiming.poseOptimisation = kPoseVisual;
+    }
     else
     {
         if(mCurrentFrame.mnId<=mnLastRelocFrameId+mnFramesToResetIMU)
         {
             Verbose::PrintMess("TLM: PoseOptimization ", Verbose::VERBOSITY_DEBUG);
             Optimizer::PoseOptimization(&mCurrentFrame);
+            mTiming.poseOptimisation = kPoseVisual;
         }
         else
         {
-            // if(!mbMapUpdated && mState == OK) //  && (mnMatchesInliers>30))
-            if(!mbMapUpdated) //  && (mnMatchesInliers>30))
+            if(!mbMapUpdated && mLastFrame.mpcpi)
             {
                 Verbose::PrintMess("TLM: PoseInertialOptimizationLastFrame ", Verbose::VERBOSITY_DEBUG);
-                inliers = Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
+                inliers = Optimizer::PoseInertialOptimizationLastFrame(&mCurrentFrame);
+                mTiming.poseOptimisation = kPoseInertialFrame;
+            }
+            else if(mCurrentFrame.mpLastKeyFrame)
+            {
+                // Without the last frame's IMU constraint (it ran a visual optimisation, e.g. in the reset window,
+                // or IMU initialisation finished during this frame) the prior must come from the last keyframe.
+                Verbose::PrintMess("TLM: PoseInertialOptimizationLastKeyFrame ", Verbose::VERBOSITY_DEBUG);
+                inliers = Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame);
+                mTiming.poseOptimisation = mbMapUpdated ? kPoseInertialKeyFrame : kPoseFallback;
             }
             else
             {
-                Verbose::PrintMess("TLM: PoseInertialOptimizationLastKeyFrame ", Verbose::VERBOSITY_DEBUG);
-                inliers = Optimizer::PoseInertialOptimizationLastKeyFrame(&mCurrentFrame); // , !mpLastKeyFrame->GetMap()->GetIniertialBA1());
+                Verbose::PrintMess("TLM: PoseOptimization (no last keyframe) ", Verbose::VERBOSITY_DEBUG);
+                Optimizer::PoseOptimization(&mCurrentFrame);
+                mTiming.poseOptimisation = kPoseVisual;
             }
         }
     }
